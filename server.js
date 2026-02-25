@@ -1,24 +1,31 @@
 /**
  * server.js
  * Run this using: node server.js
- * Make sure MongoDB is running!
  */
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const path = require('path'); // Added path module for routing
 
 const app = express();
 // Increase limit for file uploads (Notes/Assignments/Profile Pics)
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(cors());
 
-// --- 1. MONGODB CONNECTION ---
-mongoose.connect('mongodb://127.0.0.1:27017/studydock') 
+// --- 1. SERVE FRONTEND FILES ---
+// This tells Express to make everything in your 'public' folder available to the internet
+app.use(express.static(path.join(__dirname, 'public')));
+
+// --- 2. MONGODB CONNECTION ---
+// Uses the Render environment variable for live, or local database for testing
+const mongoURI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/studydock';
+
+mongoose.connect(mongoURI) 
     .then(() => console.log("✅ MongoDB Connected"))
     .catch(err => console.log("❌ DB Error:", err));
 
-// --- 2. SCHEMAS (Database Structure) ---
+// --- 3. SCHEMAS (Database Structure) ---
 const ClassSchema = new mongoose.Schema({
     id: Number, 
     name: String,
@@ -75,7 +82,6 @@ const AttendanceSchema = new mongoose.Schema({
     records: { type: Map, of: String }
 });
 
-// --- NEW: AI MODEL SCHEMA ---
 const AIModelSchema = new mongoose.Schema({
     classId: Number,
     dateGenerated: String,
@@ -94,7 +100,7 @@ const Exams = mongoose.model('Exam', ExamSchema);
 const Attendance = mongoose.model('Attendance', AttendanceSchema);
 const AIModels = mongoose.model('AIModel', AIModelSchema);
 
-// --- 3. API ROUTES ---
+// --- 4. API ROUTES ---
 
 // --- INITIAL LOAD & SYNC ---
 app.get('/api/sync-data', async (req, res) => {
@@ -190,11 +196,10 @@ app.post('/api/exams', async (req, res) => {
     res.json({ success: true });
 });
 
-// --- NEW: SAVE AI MODEL ---
+// --- SAVE AI MODEL ---
 app.post('/api/save-ai-model', async (req, res) => {
     const { classId, data } = req.body;
     try {
-        // Upsert: Update if exists, Insert if not
         await AIModels.findOneAndUpdate(
             { classId: classId },
             { $set: data },
@@ -204,7 +209,7 @@ app.post('/api/save-ai-model', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- NEW: GET AI MODEL ---
+// --- GET AI MODEL ---
 app.post('/api/get-ai-model', async (req, res) => {
     const { classId } = req.body;
     try {
@@ -212,7 +217,6 @@ app.post('/api/get-ai-model', async (req, res) => {
         res.json(model || null);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
-
 
 // --- UPDATES (Submissions & Grades & Results) ---
 app.post('/api/submit-assignment', async (req, res) => {
@@ -242,8 +246,13 @@ app.post('/api/toggle-exam-results', async (req, res) => {
     res.json({ success: true });
 });
 
-// Define the port. Render will provide process.env.PORT, 
-// otherwise it will default to 3000 for your local machine.
+// --- 5. CATCH-ALL ROUTE ---
+// If the user requests a page that isn't an API route, send them to the frontend
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Define the port
 const PORT = process.env.PORT || 5000;
 
 // Start the server
