@@ -1,0 +1,221 @@
+/* --- GLOBAL CONFIG --- */
+:root {
+    --primary-color: #16a34a; /* Green 600 */
+    --secondary-color: #1e293b; /* Slate 800 */
+    --bg-color: #f3f4f6;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-color);
+}
+
+.font-display {
+    font-family: 'Poppins', sans-serif;
+}
+
+/* --- CUSTOM SCROLLBAR --- */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* --- AUTH PAGE STYLES --- */
+.auth-background {
+    background: radial-gradient(circle at top left, #dcfce7 0%, #f3f4f6 40%, #e0e7ff 100%);
+}
+
+.glass-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 24px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.05);
+}
+
+/* --- COMPONENTS --- */
+.input-modern {
+    width: 100%;
+    padding: 12px 16px;
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 14px;
+    transition: all 0.2s;
+    outline: none;
+}
+.input-modern:focus {
+    background-color: white;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.1);
+}
+
+.input-sm {
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    font-size: 13px;
+    outline: none;
+}
+.input-sm:focus { border-color: var(--primary-color); }
+
+.btn-primary {
+    background-color: var(--primary-color);
+    color: white;
+    font-weight: 600;
+    padding: 12px;
+    border-radius: 10px;
+    transition: all 0.2s;
+}
+.btn-primary:hover {
+    background-color: #15803d;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.2);
+}
+
+.btn-primary-modern {
+    width: 100%;
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    color: white;
+    font-weight: 600;
+    padding: 14px;
+    border-radius: 10px;
+    box-shadow: 0 10px 15px -3px rgba(22, 163, 74, 0.3);
+    transition: transform 0.2s;
+}
+.btn-primary-modern:hover {
+    transform: scale(1.02);
+}
+
+.btn-sm {
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: 0.2s;
+}
+
+.btn-dark {
+    background-color: var(--secondary-color);
+    color: white;
+}
+.btn-dark:hover { background-color: #0f172a; }
+
+.btn-secondary {
+    background-color: #f1f5f9;
+    color: #475569;
+    font-weight: 600;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    transition: 0.2s;
+}
+.btn-secondary:hover { background-color: #e2e8f0; }
+
+/* --- DASHBOARD CARDS --- */
+.dashboard-card {
+    background: white;
+    padding: 24px;
+    border-radius: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border: 1px solid #f1f5f9;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.dashboard-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.01);
+    border-color: #dcfce7;
+}
+
+/* --- MODALS --- */
+.modal-backdrop {
+    display: none; /* Toggled by JS logic via style.display */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    /* Added flex here via CSS instead of JS for better centering */
+    display: none; 
+}
+
+/* Angular logic uses ng-show or direct style manipulation. 
+   We add a helper class for when it is shown to enforce flex. 
+   However, the existing JS sets display: block. 
+   We will override the behavior in index.html logic or use a trick here.
+   The JS uses getElementById(id).style.display = 'block'.
+   To center it, we need the parent to be flex. 
+   Since we can't change JS logic easily without editing JS, we use this trick: */
+   
+.modal-backdrop[style*="display: block"] {
+    display: flex !important;
+}
+
+.modal-panel {
+    background: white;
+    width: 95%;
+    max-width: 500px;
+    border-radius: 24px;
+    padding: 24px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    animation: modal-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+/* --- ANIMATIONS --- */
+@keyframes modal-pop {
+    0% { transform: scale(0.95) translateY(10px); opacity: 0; }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+@keyframes fade-in-up {
+    0% { opacity: 0; transform: translateY(20px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in-up { animation: fade-in-up 0.6s ease-out; }
+
+@keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.animate-fade-in { animation: fade-in 0.5s ease-out; }
+
+@keyframes slide-up {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+.animate-slide-up { animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+
+@keyframes pulse-slow {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.95; transform: scale(0.98); }
+}
+.animate-pulse-slow { animation: pulse-slow 3s infinite; }
+
+@keyframes bounce-slow {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+.animate-bounce-slow { animation: bounce-slow 2s infinite; }
+
+/* --- UTILS --- */
+.shadow-soft { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
