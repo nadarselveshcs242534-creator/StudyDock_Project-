@@ -24,8 +24,8 @@ app.directive('fileModel', ['$parse', function ($parse) {
 // --- MAIN CONTROLLER ---
 app.controller('MainController', function($scope, $http, $timeout) {
     
-    // Config - FIXED: Now points to the live server instead of localhost!
-    const API_URL = "/api";
+    // Config
+    const API_URL = "http://localhost:5000/api";
     $scope.currentUser = null;
     $scope.authMode = 'login';
     $scope.loginData = { role: 'admin' };

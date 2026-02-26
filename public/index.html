@@ -34,9 +34,9 @@
 
                     <div class="mb-8 flex justify-center" ng-show="authMode === 'login'">
                         <div class="bg-gray-100 p-1.5 rounded-xl flex shadow-inner w-full">
-                            <button ng-click="setLoginRole('admin')" ng-class="{'bg-white text-green-700 shadow-sm': loginData.role === 'admin', 'text-gray-500 hover:text-gray-700': loginData.role !== 'admin'}" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200">Admin</button>
-                            <button ng-click="setLoginRole('teacher')" ng-class="{'bg-white text-green-700 shadow-sm': loginData.role === 'teacher', 'text-gray-500 hover:text-gray-700': loginData.role !== 'teacher'}" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200">Teacher</button>
-                            <button ng-click="setLoginRole('student')" ng-class="{'bg-white text-green-700 shadow-sm': loginData.role === 'student', 'text-gray-500 hover:text-gray-700': loginData.role !== 'student'}" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200">Student</button>
+                            <button ng-click="setRole('admin')" ng-class="{'bg-white text-green-700 shadow-sm': loginRole === 'admin', 'text-gray-500 hover:text-gray-700': loginRole !== 'admin'}" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200">Admin</button>
+                            <button ng-click="setRole('teacher')" ng-class="{'bg-white text-green-700 shadow-sm': loginRole === 'teacher', 'text-gray-500 hover:text-gray-700': loginRole !== 'teacher'}" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200">Teacher</button>
+                            <button ng-click="setRole('student')" ng-class="{'bg-white text-green-700 shadow-sm': loginRole === 'student', 'text-gray-500 hover:text-gray-700': loginRole !== 'student'}" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200">Student</button>
                         </div>
                     </div>
 
@@ -75,11 +75,11 @@
                     </form>
 
                     <div class="mt-8 text-center">
-                         <p class="text-sm text-gray-500" ng-show="authMode === 'login' && loginData.role === 'admin'">
-                            New Admin? <a href="#" ng-click="authMode = 'register'" class="text-green-600 font-bold hover:underline cursor-pointer">Create Account</a>
+                         <p class="text-sm text-gray-500" ng-show="authMode === 'login' && loginRole === 'admin'">
+                            New Admin? <a href="#" ng-click="authMode = 'register'" class="text-green-600 font-bold hover:underline">Create Account</a>
                         </p>
                         <p class="text-sm text-gray-500" ng-show="authMode === 'register'">
-                            Already have an account? <a href="#" ng-click="authMode = 'login'" class="text-green-600 font-bold hover:underline cursor-pointer">Login</a>
+                            Already have an account? <a href="#" ng-click="authMode = 'login'" class="text-green-600 font-bold hover:underline">Login</a>
                         </p>
                     </div>
                 </div>
@@ -803,5 +803,3 @@
     <script src="script.js"></script>
 </body>
 </html>
-
-//final changed code new register button 
