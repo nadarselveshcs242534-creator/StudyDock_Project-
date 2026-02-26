@@ -24,8 +24,8 @@ app.directive('fileModel', ['$parse', function ($parse) {
 // --- MAIN CONTROLLER ---
 app.controller('MainController', function($scope, $http, $timeout) {
     
-    // Config
-    const API_URL = "http://localhost:5000/api";
+    // Config - FIXED: Changed to relative path for Render deployment
+    const API_URL = "/api";
     $scope.currentUser = null;
     $scope.authMode = 'login';
     $scope.loginData = { role: 'admin' };
@@ -60,6 +60,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
         }).finally(() => $scope.isLoading = false);
     };
 
+    // FIXED: Upgraded with better error tracking
     $scope.registerAdmin = function() {
         var payload = angular.copy($scope.regData);
         payload.role = 'admin';
@@ -67,6 +68,11 @@ app.controller('MainController', function($scope, $http, $timeout) {
         $http.post(API_URL + '/register', payload).then(function() {
             alert('Admin Created! Please Login.');
             $scope.authMode = 'login';
+            $scope.regData = {}; // Clear the form
+        }, function(err) {
+            // This will pop up the EXACT error if it fails!
+            alert('Registration Failed: ' + (err.data && err.data.error ? err.data.error : 'Network Error'));
+            console.error("Full Error:", err);
         });
     };
 
