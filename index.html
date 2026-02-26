@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="studyDockApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyDock - Classroom Edition</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+    
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body ng-controller="MainController" class="bg-gray-100 font-sans text-gray-800 antialiased">
+
+    <div id="app" class="w-full h-full">
+
+        <div ng-show="!currentUser" class="auth-background flex items-center justify-center min-h-screen p-6">
+            <div class="glass-card w-full max-w-md p-8 relative overflow-hidden animate-fade-in-up">
+                <div class="absolute -top-10 -right-10 w-32 h-32 bg-green-400 rounded-full blur-3xl opacity-30"></div>
+                <div class="absolute -bottom-10 -left-10 w-32 h-32 bg-blue-400 rounded-full blur-3xl opacity-30"></div>
+
+                <div class="relative z-10">
+                    <div class="text-center mb-8">
+                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 text-green-600 mb-4 shadow-sm">
+                            <i class="fas fa-school text-3xl"></i>
+                        </div>
+                        <h2 class="text-3xl font-bold text-gray-900 font-display">{{ authMode === 'login' ? 'Welcome Back' : 'Join StudyDock' }}</h2>
+                        <p class="text-gray-500 mt-2">{{ authMode === 'login' ? 'Sign in to access your classroom.' : 'Create your admin account.' }}</p>
+                    </div>
+
+                    <div class="mb-8 flex justify-center" ng-show="authMode === 'login'">
+                        <div class="bg-gray-100 p-1.5 rounded-xl flex shadow-inner w-full">
+                            <button ng-click="setRole('admin')" ng-class="{'bg-white text-green-700 shadow-sm': loginRole === 'admin', 'text-gray-500 hover:text-gray-700': loginRole !== 'admin'}" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200">Admin</button>
+                            <button ng-click="setRole('teacher')" ng-class="{'bg-white text-green-700 shadow-sm': loginRole === 'teacher', 'text-gray-500 hover:text-gray-700': loginRole !== 'teacher'}" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200">Teacher</button>
+                            <button ng-click="setRole('student')" ng-class="{'bg-white text-green-700 shadow-sm': loginRole === 'student', 'text-gray-500 hover:text-gray-700': loginRole !== 'student'}" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200">Student</button>
+                        </div>
+                    </div>
+
+                    <form ng-submit="login()" ng-show="authMode === 'login'" class="space-y-5">
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Email</label>
+                            <div class="relative">
+                                <i class="fas fa-envelope absolute left-3 top-3.5 text-gray-400"></i>
+                                <input type="email" ng-model="loginData.email" class="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all outline-none" placeholder="name@school.com" required>
+                            </div>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Password</label>
+                            <div class="relative">
+                                <i class="fas fa-lock absolute left-3 top-3.5 text-gray-400"></i>
+                                <input type="password" ng-model="loginData.password" class="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all outline-none" placeholder="••••••••" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5">
+                            Login to Dashboard
+                        </button>
+                    </form>
+
+                    <form ng-submit="registerAdmin()" ng-show="authMode === 'register'" class="space-y-5">
+                        <div class="flex justify-center mb-2">
+                            <label class="cursor-pointer group relative w-24 h-24 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex flex-col items-center justify-center hover:border-green-500 hover:bg-green-50 transition-all">
+                                <i class="fas fa-camera text-gray-400 group-hover:text-green-500 text-xl mb-1"></i>
+                                <span class="text-xs text-gray-400 group-hover:text-green-500">Upload</span>
+                                <input type="file" file-model="regData.profilePic" class="hidden" accept="image/*">
+                            </label>
+                        </div>
+                        <input type="text" ng-model="regData.name" class="input-modern" placeholder="Full Name" required>
+                        <input type="email" ng-model="regData.email" class="input-modern" placeholder="Email Address" required>
+                        <input type="password" ng-model="regData.password" class="input-modern" placeholder="Create Password" required>
+                        <button type="submit" class="btn-primary-modern">Create Admin Account</button>
+                    </form>
+
+                    <div class="mt-8 text-center">
+                         <p class="text-sm text-gray-500" ng-if="authMode === 'login' && loginRole === 'admin'">
+                            New Admin? <a href="#" ng-click="authMode = 'register'" class="text-green-600 font-bold hover:underline">Create Account</a>
+                        </p>
+                        <p class="text-sm text-gray-500" ng-if="authMode === 'register'">
+                            Already have an account? <a href="#" ng-click="authMode = 'login'" class="text-green-600 font-bold hover:underline">Login</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div ng-if="currentUser" class="flex h-screen overflow-hidden bg-gray-100">
+            
+            <aside class="w-64 bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col shadow-2xl relative z-20">
+                <div class="h-20 flex items-center px-6 border-b border-slate-800 bg-slate-900">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded bg-green-500 flex items-center justify-center text-white font-bold shadow-lg shadow-green-500/30">SD</div>
+                        <span class="font-display font-bold text-xl tracking-tight">StudyDock</span>
+                    </div>
+                </div>
+
+                <div class="p-6 text-center border-b border-slate-800">
+                    <div class="relative w-20 h-20 mx-auto mb-3 cursor-pointer group" ng-click="openModal('updateProfileModal')">
+                        <div class="w-full h-full rounded-full border-2 border-green-500 p-1">
+                            <img ng-if="currentUser.profilePic" ng-src="{{currentUser.profilePic}}" class="w-full h-full rounded-full object-cover">
+                            <div ng-if="!currentUser.profilePic" class="w-full h-full rounded-full bg-slate-800 flex items-center justify-center">
+                                <i class="fas fa-user text-2xl text-slate-400"></i>
+                            </div>
+                        </div>
+                        <div class="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <i class="fas fa-camera text-white"></i>
+                        </div>
+                    </div>
+                    <h3 class="font-semibold text-lg">{{ currentUser.name }}</h3>
+                    <span class="inline-block px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider bg-slate-800 text-green-400 border border-slate-700 mt-1">{{ currentUser.role }}</span>
+                </div>
+
+                <nav class="flex-1 overflow-y-auto py-6 px-3 space-y-1">
+                    <div ng-if="currentUser.role === 'student'" class="mb-6 px-3">
+                        <label class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Class Navigation</label>
+                        <select ng-model="studentConfig.filter" ng-change="updateStudentView()" class="w-full bg-slate-800 text-sm text-slate-300 rounded border border-slate-700 py-2 px-3 focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none">
+                            <option value="all">All Classes</option>
+                            <option ng-repeat="cid in currentUser.classIds" value="{{cid}}">
+                                {{ getClassDetails(cid).name }}
+                            </option>
+                        </select>
+                    </div>
+                    
+                    <div class="px-3 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Menu</div>
+                    <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-green-600/10 text-green-400 font-medium border border-green-600/20">
+                        <i class="fas fa-th-large w-5"></i> Dashboard
+                    </a>
+                </nav>
+
+                <div class="p-4 border-t border-slate-800">
+                    <button ng-click="logout()" class="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors text-sm font-medium">
+                        <i class="fas fa-sign-out-alt"></i> Sign Out
+                    </button>
+                </div>
+            </aside>
+
+            <main class="flex-1 flex flex-col h-full overflow-hidden relative">
+                <header class="md:hidden h-16 bg-white border-b flex items-center justify-between px-4 z-20">
+                    <div class="font-display font-bold text-lg text-slate-800 flex items-center gap-2">
+                        <i class="fas fa-school text-green-600"></i> StudyDock
+                    </div>
+                    <button ng-click="logout()" class="text-slate-500"><i class="fas fa-sign-out-alt"></i></button>
+                </header>
+
+                <div class="flex-1 overflow-y-auto p-4 md:p-8">
+                    
+                    <div ng-if="currentUser.role === 'admin'" class="max-w-6xl mx-auto space-y-8 animate-fade-in">
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <h1 class="text-3xl font-bold font-display text-slate-900">Admin Overview</h1>
+                                <p class="text-slate-500 mt-1">Manage system configuration and users.</p>
+                            </div>
+                            <button ng-click="resetDatabase()" class="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-red-200">
+                                <i class="fas fa-trash-alt mr-1"></i> Factory Reset
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            
+                            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                                <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                    <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center"><i class="fas fa-layer-group text-sm"></i></div>
+                                    Academic Structure
+                                </h2>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                    <form ng-submit="createClass()" class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                        <h3 class="text-xs font-bold uppercase text-slate-500 mb-3">Create Class</h3>
+                                        <div class="space-y-2">
+                                            <input type="text" ng-model="newClass.name" placeholder="Name (e.g. Grade 10)" class="input-sm">
+                                            <input type="text" ng-model="newClass.section" placeholder="Section (e.g. A)" class="input-sm">
+                                            <button type="submit" class="btn-sm btn-dark w-full">Add Class</button>
+                                        </div>
+                                    </form>
+                                    <form ng-submit="addSubject()" class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                        <h3 class="text-xs font-bold uppercase text-slate-500 mb-3">Add Subject</h3>
+                                        <div class="space-y-2">
+                                            <select ng-model="newSubject.classId" class="input-sm">
+                                                <option value="" disabled selected>Select Class</option>
+                                                <option ng-repeat="c in db.classes" value="{{c.id}}">{{c.name}} - {{c.section}}</option>
+                                            </select>
+                                            <input type="text" ng-model="newSubject.name" placeholder="Subject Name" class="input-sm">
+                                            <button type="submit" class="btn-sm bg-blue-600 text-white hover:bg-blue-700 w-full">Add Subject</button>
+                                        </div>
+                                    </form>
+                                </div>
+
+                                <div>
+                                    <h3 class="text-sm font-bold text-slate-700 mb-3">Active Classes</h3>
+                                    <div class="flex flex-wrap gap-3">
+                                        <div ng-repeat="c in db.classes" class="bg-white border border-slate-200 rounded-lg p-3 shadow-sm min-w-[140px]">
+                                            <div class="font-bold text-slate-800">{{c.name}}</div>
+                                            <div class="text-xs text-green-600 font-semibold mb-1">{{c.section}}</div>
+                                            <div class="text-[10px] text-slate-400 leading-tight">
+                                                {{ c.subjects.length > 0 ? c.subjects.join(', ') : 'No subjects' }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="space-y-6">
+                                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                                    <div class="flex justify-between items-center mb-4">
+                                        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                            <div class="w-8 h-8 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center"><i class="fas fa-users-cog text-sm"></i></div>
+                                            Directory
+                                        </h2>
+                                        <button ng-click="openManageStudentModal()" class="text-xs font-bold text-purple-600 hover:text-purple-700 bg-purple-50 px-3 py-1.5 rounded-lg transition-colors border border-purple-100">
+                                            Manage Students
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <button ng-click="authMode = 'register'" class="hidden"></button> <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                            <h3 class="text-xs font-bold uppercase text-slate-500 mb-3">New Teacher</h3>
+                                            <form ng-submit="createUser('teacher')" class="space-y-2">
+                                                <input type="text" ng-model="newUser.teacher.name" placeholder="Name" class="input-sm">
+                                                <input type="email" ng-model="newUser.teacher.email" placeholder="Email" class="input-sm">
+                                                <input type="password" ng-model="newUser.teacher.password" placeholder="Pass" class="input-sm">
+                                                <button type="submit" class="btn-sm bg-green-600 text-white w-full">Create</button>
+                                            </form>
+                                        </div>
+
+                                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                            <h3 class="text-xs font-bold uppercase text-slate-500 mb-3">New Student</h3>
+                                            <form ng-submit="createUser('student')" class="space-y-2">
+                                                <input type="text" ng-model="newUser.student.name" placeholder="Name" class="input-sm">
+                                                <div class="h-20 overflow-y-auto border bg-white rounded p-1">
+                                                    <label ng-repeat="c in db.classes" class="block text-xs p-1 hover:bg-slate-50 cursor-pointer">
+                                                        <input type="checkbox" ng-model="newUser.student.selectedClasses[c.id]"> {{c.name}}
+                                                    </label>
+                                                </div>
+                                                <input type="email" ng-model="newUser.student.email" placeholder="Email" class="input-sm">
+                                                <input type="password" ng-model="newUser.student.password" placeholder="Pass" class="input-sm">
+                                                <button type="submit" class="btn-sm bg-slate-800 text-white w-full">Create</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div ng-if="currentUser.role === 'teacher'" class="max-w-6xl mx-auto space-y-6 animate-fade-in">
+                        <h1 class="text-3xl font-bold font-display text-slate-900">Teacher Workspace</h1>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="dashboard-card group" ng-click="openModal('attendanceModal')">
+                                <div class="w-12 h-12 rounded-2xl bg-green-100 text-green-600 flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition-transform duration-300">
+                                    <i class="fas fa-user-check"></i>
+                                </div>
+                                <h3 class="text-lg font-bold text-slate-800">Attendance</h3>
+                                <p class="text-sm text-slate-500 mt-1">Mark daily records efficiently.</p>
+                            </div>
+
+                            <div class="dashboard-card group" ng-click="openModal('assignmentModal')">
+                                <div class="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition-transform duration-300">
+                                    <i class="fas fa-clipboard-list"></i>
+                                </div>
+                                <h3 class="text-lg font-bold text-slate-800">Assignments</h3>
+                                <p class="text-sm text-slate-500 mt-1">Create tasks and track submissions.</p>
+                            </div>
+
+                            <div class="dashboard-card group" ng-click="openModal('notesModal')">
+                                <div class="w-12 h-12 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition-transform duration-300">
+                                    <i class="fas fa-file-upload"></i>
+                                </div>
+                                <h3 class="text-lg font-bold text-slate-800">Materials</h3>
+                                <p class="text-sm text-slate-500 mt-1">Upload study resources.</p>
+                            </div>
+
+                            <div class="dashboard-card group" ng-click="openModal('createExamModal')">
+                                <div class="w-12 h-12 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition-transform duration-300">
+                                    <i class="fas fa-edit"></i>
+                                </div>
+                                <h3 class="text-lg font-bold text-slate-800">Exams</h3>
+                                <p class="text-sm text-slate-500 mt-1">Build quizzes and assessments.</p>
+                            </div>
+
+                            <div class="dashboard-card group md:col-span-2 bg-gradient-to-br from-slate-900 to-slate-800 text-white" ng-click="openModal('viewDataModal')">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <div class="w-12 h-12 rounded-2xl bg-white/10 text-white flex items-center justify-center text-xl mb-4">
+                                            <i class="fas fa-chart-pie"></i>
+                                        </div>
+                                        <h3 class="text-lg font-bold">Analytics Center</h3>
+                                        <p class="text-sm text-slate-300 mt-1">AI Insights, Grading & Reports</p>
+                                    </div>
+                                    <i class="fas fa-chevron-right text-2xl opacity-50"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div ng-if="currentUser.role === 'student'" class="max-w-6xl mx-auto space-y-8 animate-fade-in">
+                        
+                        <div class="flex items-center justify-between">
+                            <h1 class="text-3xl font-bold font-display text-slate-900">{{dashboardTitle}}</h1>
+                        </div>
+
+                        <div ng-if="hasPendingExams" class="bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-xl p-4 shadow-lg flex items-center justify-between animate-pulse-slow cursor-pointer" ng-click="openStudentExamModal()">
+                            <div class="flex items-center gap-3">
+                                <div class="bg-white/20 p-2 rounded-lg"><i class="fas fa-bell text-xl"></i></div>
+                                <div>
+                                    <p class="font-bold text-lg">Exams Available</p>
+                                    <p class="text-sm opacity-90">You have pending assessments. Click to start.</p>
+                                </div>
+                            </div>
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+                            
+                            <div class="md:col-span-7 space-y-6">
+                                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                                    <h3 class="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
+                                        <i class="fas fa-book text-green-600"></i> Active Assignments
+                                    </h3>
+                                    <div class="space-y-3">
+                                        <div ng-if="studentData.assignments.length === 0" class="text-center py-8 text-slate-400 italic bg-slate-50 rounded-xl">
+                                            🎉 No pending homework!
+                                        </div>
+                                        <div ng-repeat="a in studentData.assignments" class="p-4 rounded-xl border border-slate-100 hover:border-green-200 transition-colors bg-slate-50 hover:bg-white shadow-sm group">
+                                            <div class="flex justify-between items-start">
+                                                <div>
+                                                    <div class="flex gap-2">
+                                                        <span class="text-[10px] font-bold uppercase tracking-wide text-slate-400 bg-white border px-2 py-0.5 rounded-full">{{a.subject}}</span>
+                                                        <span class="text-[10px] font-bold uppercase tracking-wide text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full">{{a.className}}</span>
+                                                    </div>
+                                                    <h4 class="font-bold text-slate-800 mt-2 text-lg">{{a.title}}</h4>
+                                                    <p class="text-xs text-slate-500 mt-1">Due: {{a.due}}</p>
+                                                </div>
+                                                <div ng-if="a.submission" class="text-center">
+                                                    <span class="block text-2xl font-bold text-green-600">{{a.submission.grade || '-'}}</span>
+                                                    <span class="text-[10px] uppercase font-bold text-green-600">Grade</span>
+                                                </div>
+                                                <button ng-if="!a.submission" ng-click="openSubmitAssignmentModal(a)" class="bg-slate-900 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-green-600 transition-colors">
+                                                    Submit
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                                    <h3 class="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
+                                        <i class="fas fa-paperclip text-blue-600"></i> Class Materials
+                                    </h3>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div ng-repeat="n in studentData.notes" class="p-3 bg-blue-50/50 rounded-xl border border-blue-100 hover:shadow-md transition-shadow">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0">
+                                                    <i class="fas fa-file-alt"></i>
+                                                </div>
+                                                <div class="overflow-hidden">
+                                                    <div class="font-bold text-slate-700 text-sm truncate">{{n.title}}</div>
+                                                    <a ng-href="{{n.fileData}}" download="{{n.fileName}}" class="text-xs text-blue-600 font-bold hover:underline">Download</a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <p ng-if="studentData.notes.length === 0" class="text-slate-400 text-sm italic col-span-2">No materials uploaded.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="md:col-span-5 space-y-6">
+                                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 cursor-pointer hover:shadow-md transition-shadow" ng-click="openStudentExamModal()">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <h3 class="font-bold text-lg text-slate-800">Exams</h3>
+                                        <span class="bg-purple-100 text-purple-700 text-xs font-bold px-2 py-1 rounded-full">{{studentData.exams.length}} Total</span>
+                                    </div>
+                                    <p class="text-sm text-slate-500 mb-4">View your exam history and take active quizzes.</p>
+                                    <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                                        <div class="bg-purple-500 h-full w-2/3"></div> </div>
+                                </div>
+
+                                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                                    <h3 class="font-bold text-lg text-slate-800 mb-4">Attendance Log</h3>
+                                    <div class="max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+                                        <table class="w-full text-sm text-left">
+                                            <tbody class="divide-y divide-slate-100">
+                                                <tr ng-repeat="att in studentData.attendance">
+                                                    <td class="py-3">
+                                                        <div class="font-bold text-slate-700">{{att.subject}}</div>
+                                                        <div class="text-xs text-slate-400">{{att.date}}</div>
+                                                    </td>
+                                                    <td class="py-3 text-right">
+                                                        <span class="inline-block px-2 py-1 rounded text-xs font-bold" ng-class="{'bg-green-100 text-green-700': att.status === 'Present', 'bg-red-100 text-red-700': att.status !== 'Present'}">
+                                                            {{att.status.charAt(0)}}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                                <tr ng-if="studentData.attendance.length === 0"><td class="text-slate-400 italic text-center py-4">No records.</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </main>
+        </div>
+
+        <div id="updateProfileModal" class="modal-backdrop">
+            <div class="modal-panel max-w-sm text-center">
+                <button class="absolute top-4 right-4 text-slate-400 hover:text-slate-600" ng-click="closeModal('updateProfileModal')"><i class="fas fa-times text-xl"></i></button>
+                <h2 class="text-xl font-bold text-slate-800 mb-6">Update Photo</h2>
+                <div class="flex flex-col items-center gap-4">
+                    <div class="w-32 h-32 rounded-full border-4 border-slate-100 shadow-inner overflow-hidden bg-slate-50">
+                        <img ng-if="previewProfileSrc" ng-src="{{previewProfileSrc}}" class="w-full h-full object-cover">
+                        <i ng-if="!previewProfileSrc" class="fas fa-image text-4xl text-slate-300 mt-10"></i>
+                    </div>
+                    <label class="btn-secondary w-full cursor-pointer relative overflow-hidden">
+                        <span>Choose Image</span>
+                        <input type="file" file-model="newProfilePicFile" class="absolute inset-0 opacity-0 cursor-pointer" accept="image/*">
+                    </label>
+                    <button ng-click="saveProfilePic()" class="btn-primary w-full">Save Changes</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="alertModal" class="modal-backdrop" style="z-index: 9999;">
+            <div class="modal-panel max-w-xs text-center p-6">
+                <div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                    <i class="fas fa-info"></i>
+                </div>
+                <p class="text-slate-700 font-medium mb-6">{{ alertMessage }}</p>
+                <button ng-click="closeModal('alertModal')" class="btn-primary w-full">Okay</button>
+            </div>
+        </div>
+
+        <div id="createExamModal" class="modal-backdrop">
+            <div class="modal-panel max-w-2xl">
+                <div class="flex justify-between items-center mb-6 pb-4 border-b">
+                    <h2 class="text-xl font-bold text-slate-800">Create Exam</h2>
+                    <button ng-click="closeModal('createExamModal')" class="text-slate-400"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                <form ng-submit="publishExam()">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                         <select ng-model="examData.classId" ng-change="loadSubjectsForExam()" class="input-modern" required>
+                            <option value="" disabled>Select Class</option>
+                            <option ng-repeat="c in db.classes" value="{{c.id}}">{{c.name}} - {{c.section}}</option>
+                        </select>
+                        <select ng-model="examData.subject" class="input-modern" required>
+                             <option value="" disabled>Select Subject</option>
+                             <option ng-repeat="s in examData.availableSubjects" value="{{s}}">{{s}}</option>
+                        </select>
+                    </div>
+                    <input type="text" ng-model="examData.title" placeholder="Exam Title" class="input-modern mb-4" required>
+                    
+                    <div class="flex items-center gap-3 mb-6 bg-yellow-50 p-3 rounded-lg border border-yellow-100 text-yellow-800">
+                        <input type="checkbox" ng-model="examData.showImmediate" class="w-5 h-5 accent-yellow-600 rounded">
+                        <label class="font-bold text-sm">Release results immediately after submission?</label>
+                    </div>
+
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 max-h-64 overflow-y-auto custom-scrollbar">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold text-sm text-slate-500 uppercase">Questions Builder</h3>
+                            <button type="button" ng-click="addExamQuestion()" class="text-xs font-bold text-blue-600 hover:underline">+ Add Question</button>
+                        </div>
+                        <div class="space-y-4">
+                            <div ng-repeat="q in examData.questions" class="p-4 bg-white border border-slate-200 rounded-lg shadow-sm">
+                                <div class="flex justify-between mb-2">
+                                    <span class="text-xs font-bold text-slate-400">Q{{$index + 1}}</span>
+                                </div>
+                                <input ng-model="q.text" class="w-full p-2 text-sm border-b border-slate-200 focus:border-blue-500 outline-none mb-3 font-medium" placeholder="Type question here...">
+                                <div class="grid grid-cols-2 gap-2 mb-3">
+                                    <input ng-repeat="opt in q.options track by $index" ng-model="q.options[$index]" class="p-2 border rounded text-xs bg-slate-50" placeholder="Option {{$index+1}}">
+                                </div>
+                                <div class="flex items-center gap-2 bg-green-50 p-2 rounded w-max">
+                                    <span class="text-xs font-bold text-green-700">Correct Opt (1-4):</span>
+                                    <input type="number" ng-model="q.correct" min="1" max="4" class="w-12 text-center text-xs font-bold bg-white border rounded">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary w-full">Publish Exam</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="attendanceModal" class="modal-backdrop">
+            <div class="modal-panel max-w-2xl">
+                <span class="absolute top-4 right-4 cursor-pointer text-slate-400" ng-click="closeModal('attendanceModal')"><i class="fas fa-times text-xl"></i></span>
+                <h2 class="text-xl font-bold mb-6 text-slate-800">Mark Attendance</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <select ng-model="attData.classId" class="input-modern" ng-change="loadSubjectsForAttendance()">
+                        <option value="" disabled selected>Class</option>
+                        <option ng-repeat="c in db.classes" value="{{c.id}}">{{c.name}}</option>
+                    </select>
+                    <select ng-model="attData.subject" class="input-modern">
+                        <option value="" disabled selected>Subject</option>
+                        <option ng-repeat="s in attData.availableSubjects" value="{{s}}">{{s}}</option>
+                    </select>
+                    <input type="date" ng-model="attData.date" class="input-modern">
+                </div>
+                <div class="max-h-64 overflow-y-auto border rounded-xl bg-slate-50 mb-6 custom-scrollbar">
+                    <div ng-repeat="s in attData.students" class="flex justify-between items-center border-b border-slate-200 p-3 hover:bg-white transition">
+                        <span class="font-medium text-slate-700 text-sm">{{s.name}}</span>
+                        <div class="flex gap-2 bg-white rounded-lg p-1 shadow-sm border">
+                            <label class="cursor-pointer px-3 py-1 rounded text-xs font-bold transition-colors" ng-class="{'bg-green-100 text-green-700': s.status === 'Present', 'text-slate-400': s.status !== 'Present'}">
+                                <input type="radio" ng-model="s.status" value="Present" class="hidden"> P
+                            </label>
+                            <label class="cursor-pointer px-3 py-1 rounded text-xs font-bold transition-colors" ng-class="{'bg-red-100 text-red-700': s.status === 'Absent', 'text-slate-400': s.status !== 'Absent'}">
+                                <input type="radio" ng-model="s.status" value="Absent" class="hidden"> A
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <button ng-click="submitAttendance()" class="btn-primary w-full">Save Record</button>
+            </div>
+        </div>
+
+        <div id="assignmentModal" class="modal-backdrop">
+            <div class="modal-panel">
+                <span class="absolute top-4 right-4 cursor-pointer" ng-click="closeModal('assignmentModal')"><i class="fas fa-times"></i></span>
+                <h2 class="text-xl font-bold mb-4 text-slate-800">New Assignment</h2>
+                <form ng-submit="postAssignment()" class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <select ng-model="assignData.classId" ng-change="loadSubjectsForAssign()" class="input-modern" required>
+                             <option value="" disabled>Class</option>
+                             <option ng-repeat="c in db.classes" value="{{c.id}}">{{c.name}}</option>
+                        </select>
+                        <select ng-model="assignData.subject" class="input-modern" required>
+                             <option value="" disabled>Subject</option>
+                             <option ng-repeat="s in assignData.availableSubjects" value="{{s}}">{{s}}</option>
+                        </select>
+                    </div>
+                    <input type="text" ng-model="assignData.title" placeholder="Assignment Title" class="input-modern" required>
+                    <textarea ng-model="assignData.desc" placeholder="Instructions..." class="input-modern h-32"></textarea>
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-bold text-slate-500">Due Date:</span>
+                        <input type="date" ng-model="assignData.due" class="input-modern w-auto" required>
+                    </div>
+                    <button type="submit" class="btn-primary w-full">Post</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="notesModal" class="modal-backdrop">
+            <div class="modal-panel">
+                <span class="absolute top-4 right-4 cursor-pointer" ng-click="closeModal('notesModal')"><i class="fas fa-times"></i></span>
+                <h2 class="text-xl font-bold mb-4">Upload Materials</h2>
+                <form ng-submit="postNote()" class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <select ng-model="noteData.classId" ng-change="loadSubjectsForNote()" class="input-modern" required>
+                            <option value="" disabled>Class</option>
+                            <option ng-repeat="c in db.classes" value="{{c.id}}">{{c.name}}</option>
+                        </select>
+                        <select ng-model="noteData.subject" class="input-modern" required>
+                             <option value="" disabled>Subject</option>
+                             <option ng-repeat="s in noteData.availableSubjects" value="{{s}}">{{s}}</option>
+                        </select>
+                    </div>
+                    <input type="text" ng-model="noteData.title" placeholder="Topic Title" class="input-modern" required>
+                    <div class="bg-slate-50 p-4 rounded-xl border border-dashed border-slate-300 text-center">
+                        <i class="fas fa-cloud-upload-alt text-3xl text-slate-300 mb-2"></i>
+                        <input type="file" file-model="noteData.file" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" required>
+                    </div>
+                    <button type="submit" class="btn-primary w-full">Upload</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="viewDataModal" class="modal-backdrop">
+             <div class="modal-panel max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden">
+                <div class="p-4 border-b flex justify-between items-center bg-slate-50">
+                    <h2 class="text-lg font-bold text-slate-800">Teacher Analytics</h2>
+                    <button ng-click="closeModal('viewDataModal')" class="text-slate-400 hover:text-red-500"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                
+                <div class="flex border-b">
+                    <button ng-click="reportTab = 'grading'" class="px-6 py-3 font-semibold text-sm border-b-2 transition-colors" ng-class="{'border-green-500 text-green-700 bg-green-50/50': reportTab === 'grading', 'border-transparent text-slate-500 hover:text-slate-700': reportTab !== 'grading'}"><i class="fas fa-marker mr-2"></i> Grading</button>
+                    <button ng-click="reportTab = 'ai'" class="px-6 py-3 font-semibold text-sm border-b-2 transition-colors" ng-class="{'border-purple-500 text-purple-700 bg-purple-50/50': reportTab === 'ai', 'border-transparent text-slate-500 hover:text-slate-700': reportTab !== 'ai'}"><i class="fas fa-robot mr-2"></i> AI Insights</button>
+                    <button ng-click="reportTab = 'csv'" class="px-6 py-3 font-semibold text-sm border-b-2 transition-colors" ng-class="{'border-yellow-500 text-yellow-700 bg-yellow-50/50': reportTab === 'csv', 'border-transparent text-slate-500 hover:text-slate-700': reportTab !== 'csv'}"><i class="fas fa-file-csv mr-2"></i> Export</button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-6 bg-slate-50">
+                    <div ng-show="reportTab === 'grading'" class="space-y-4">
+                        <div ng-repeat="a in db.assignments" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div class="bg-slate-50 p-3 border-b border-slate-100 flex justify-between">
+                                <h4 class="font-bold text-slate-700 text-sm">{{a.title}} <span class="text-slate-400 font-normal">({{getClassDetails(a.classId).name}})</span></h4>
+                            </div>
+                            <div class="p-3">
+                                <div ng-repeat="(uid, sub) in a.submissions" class="flex items-center justify-between p-2 hover:bg-slate-50 rounded">
+                                    <div class="text-sm">
+                                        <div class="font-bold text-slate-700">{{getUserName(uid)}}</div>
+                                        <div class="text-xs text-slate-400">{{sub.date}}</div>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <a ng-if="sub.fileData" ng-href="{{sub.fileData}}" download="{{sub.fileName}}" class="text-blue-500 hover:bg-blue-50 p-1 rounded"><i class="fas fa-download"></i></a>
+                                        <input type="text" ng-model="sub.grade" class="w-16 border rounded text-xs p-1 text-center" placeholder="Grade">
+                                        <button ng-click="saveGrade(a.id, uid, sub.grade)" class="text-green-600 hover:text-green-800"><i class="fas fa-save"></i></button>
+                                    </div>
+                                </div>
+                                <p ng-if="isEmpty(a.submissions)" class="text-xs text-center text-slate-400 py-2">No submissions found.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div ng-show="reportTab === 'ai'" class="space-y-6">
+                        <div class="flex gap-4 items-center bg-white p-4 rounded-xl shadow-sm border">
+                            <select ng-model="aiSelectedClass" class="input-modern w-64">
+                                <option value="" disabled>Select Class</option>
+                                <option ng-repeat="c in db.classes" value="{{c.id}}">{{c.name}}</option>
+                            </select>
+                            <button ng-click="generateAIReport()" class="bg-purple-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-purple-700 shadow-lg shadow-purple-200">Generate Report</button>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl border shadow-sm h-80">
+                            <canvas id="aiChart"></canvas>
+                        </div>
+                        
+                        <div ng-if="aiData.studentReports.length > 0" class="space-y-3">
+                            <div ng-repeat="r in aiData.studentReports" class="bg-white border-l-4 p-4 rounded shadow-sm flex justify-between items-start" 
+                                 ng-class="{'border-green-500': r.color=='green', 'border-red-500': r.color=='red', 'border-gray-400': r.color=='gray'}">
+                                <div>
+                                    <h4 class="font-bold text-slate-800 text-lg">{{r.name}}</h4>
+                                    <p class="text-sm text-slate-500 mb-1">Attendance: {{r.attendance}}% | Actual Score: {{r.actual}}%</p>
+                                    <p ng-if="r.weakAreas" class="text-xs text-red-600 font-bold"><i class="fas fa-exclamation-circle"></i> Needs Improvement: {{r.weakAreas}}</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="font-bold text-xs uppercase mb-1" 
+                                         ng-class="{'text-green-600': r.color=='green', 'text-red-600': r.color=='red', 'text-slate-500': r.color=='gray'}">
+                                        {{r.status}}
+                                    </div>
+                                    <div class="text-xs text-slate-400">Predicted: {{r.predicted}}%</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div ng-show="reportTab === 'csv'" class="p-6 space-y-8 bg-slate-50">
+                        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center">
+                            <div>
+                                <h3 class="font-bold text-lg text-slate-800">Export Center</h3>
+                                <p class="text-sm text-slate-500">Select a class to generate reports.</p>
+                            </div>
+                            <select ng-model="exportConfig.classId" ng-change="updateExportSubjects()" class="input-modern w-64 bg-slate-50">
+                                <option value="" disabled selected>Select Class...</option>
+                                <option ng-repeat="c in db.classes" value="{{c.id}}">{{c.name}}</option>
+                            </select>
+                        </div>
+
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                            <h3 class="font-bold text-lg text-slate-800 mb-4 border-b pb-2"><i class="fas fa-calendar-check text-green-600 mr-2"></i> Attendance Reports</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div class="space-y-4">
+                                    <label class="text-xs font-bold uppercase text-slate-500 tracking-wider">Daily Export</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="date" ng-model="exportConfig.date" class="input-sm flex-1">
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button ng-click="exportDailyAttendance(false)" class="btn-sm bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 flex-1">General Report</button>
+                                        <select ng-model="exportConfig.subject" class="input-sm flex-1">
+                                            <option value="">Subject...</option>
+                                            <option ng-repeat="s in exportConfig.availableSubjects" value="{{s}}">{{s}}</option>
+                                        </select>
+                                        <button ng-click="exportDailyAttendance(true)" class="btn-sm bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 flex-1">Sub-wise</button>
+                                    </div>
+                                </div>
+                                <div class="space-y-4">
+                                    <label class="text-xs font-bold uppercase text-slate-500 tracking-wider">Monthly Export</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="month" ng-model="exportConfig.month" class="input-sm flex-1">
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button ng-click="exportMonthlyAttendance(false)" class="btn-sm bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 flex-1">Monthly Summary</button>
+                                        <select ng-model="exportConfig.subjectMonth" class="input-sm flex-1">
+                                            <option value="">Subject...</option>
+                                            <option ng-repeat="s in exportConfig.availableSubjects" value="{{s}}">{{s}}</option>
+                                        </select>
+                                         <button ng-click="exportMonthlyAttendance(true)" class="btn-sm bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 flex-1">Sub-wise</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                            <h3 class="font-bold text-lg text-slate-800 mb-4 border-b pb-2"><i class="fas fa-graduation-cap text-blue-600 mr-2"></i> Academic Reports</h3>
+                            <div class="flex gap-4">
+                                <button ng-click="exportAssignmentReport()" class="btn-secondary flex-1 py-4 flex items-center justify-center gap-2 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200">
+                                    <i class="fas fa-clipboard-list text-xl"></i> 
+                                    <div class="text-left">
+                                        <div class="font-bold text-sm">Assignment Report</div>
+                                        <div class="text-[10px] opacity-70">Grades & Submissions</div>
+                                    </div>
+                                </button>
+                                <button ng-click="exportExamReport()" class="btn-secondary flex-1 py-4 flex items-center justify-center gap-2 hover:bg-purple-50 hover:text-purple-700 hover:border-purple-200">
+                                    <i class="fas fa-file-alt text-xl"></i>
+                                    <div class="text-left">
+                                        <div class="font-bold text-sm">Exam Results Report</div>
+                                        <div class="text-[10px] opacity-70">Scores & Percentages</div>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="text-center pt-4 border-t border-slate-200">
+                             <button ng-click="exportMasterReport()" class="bg-slate-800 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-slate-900 shadow-xl shadow-slate-200 transform hover:scale-105 transition-transform w-full md:w-auto">
+                                 <i class="fas fa-database mr-2 text-yellow-400"></i> Download Master Record
+                             </button>
+                             <p class="text-xs text-slate-400 mt-2">Includes consolidated attendance, exam, and assignment data.</p>
+                        </div>
+                    </div>
+                </div>
+             </div>
+        </div>
+
+        <div id="manageStudentModal" class="modal-backdrop">
+             <div class="modal-panel">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-slate-800">Edit Students</h2>
+                    <span ng-click="closeModal('manageStudentModal')" class="cursor-pointer text-slate-400"><i class="fas fa-times"></i></span>
+                </div>
+                <div class="space-y-4">
+                    <select ng-model="manageStudentId" ng-change="loadStudentForEdit()" class="input-modern">
+                        <option value="" disabled selected>Choose Student...</option>
+                        <option ng-repeat="u in db.users | filter:{role:'student'}" value="{{u.id}}">{{u.name}}</option>
+                    </select>
+                    
+                    <div ng-if="manageStudentId" class="animate-fade-in">
+                        <div class="bg-slate-50 border rounded-xl p-3 max-h-40 overflow-y-auto custom-scrollbar">
+                             <label ng-repeat="c in db.classes" class="flex items-center gap-3 p-2 hover:bg-white rounded cursor-pointer border-b border-dashed border-slate-200 last:border-0">
+                                <input type="checkbox" ng-model="editStudentClasses[c.id]" class="w-4 h-4 accent-green-600 rounded">
+                                <span class="text-sm font-medium text-slate-700">{{c.name}}</span>
+                            </label>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 mt-4">
+                            <button ng-click="saveStudentClasses()" class="btn-primary">Update Classes</button>
+                            <button ng-click="deleteStudent()" class="bg-red-100 text-red-600 font-bold py-2 rounded-lg hover:bg-red-200">Delete User</button>
+                       </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="takeExamModal" class="modal-backdrop">
+             <div class="modal-panel max-w-4xl h-[90vh] flex flex-col">
+                <div class="border-b pb-4 mb-4">
+                    <h2 class="text-2xl font-bold text-slate-800">{{activeExam.title}}</h2>
+                    <p class="text-slate-500 text-sm">Please answer carefully. Chatbot is disabled.</p>
+                </div>
+                <form ng-submit="submitExam()" class="flex-1 overflow-y-auto custom-scrollbar pr-4 space-y-8">
+                    <div ng-repeat="q in activeExam.questions" class="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                        <p class="font-bold text-slate-800 text-lg mb-4">{{$index+1}}. {{q.text}}</p>
+                        <div class="space-y-3">
+                            <label ng-repeat="opt in q.options track by $index" class="flex items-center gap-4 p-3 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-green-500 hover:bg-green-50 transition-all">
+                                <input type="radio" ng-model="examAnswers[$parent.$index]" value="{{$index}}" class="w-5 h-5 accent-green-600">
+                                <span class="text-slate-700">{{opt}}</span>
+                            </label>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary text-lg py-4 shadow-xl">Submit Exam</button>
+                </form>
+            </div>
+        </div>
+        
+        <div id="studentExamListModal" class="modal-backdrop">
+            <div class="modal-panel max-w-lg">
+                <span class="absolute top-4 right-4 cursor-pointer text-slate-400" ng-click="closeModal('studentExamListModal')"><i class="fas fa-times"></i></span>
+                <h2 class="text-xl font-bold mb-4 text-slate-800">Available Exams</h2>
+                <div class="space-y-3 max-h-[60vh] overflow-y-auto custom-scrollbar p-1">
+                    <p ng-if="studentData.exams.length === 0" class="text-slate-400 text-center italic">No exams scheduled.</p>
+                    <div ng-repeat="e in studentData.exams" class="p-4 bg-white border rounded-xl shadow-sm flex justify-between items-center group hover:border-green-500 transition-colors">
+                        <div>
+                            <h4 class="font-bold text-slate-800 group-hover:text-green-700">{{e.title}}</h4>
+                            <span class="text-xs text-slate-400">{{getClassDetails(e.classId).name}}</span>
+                        </div>
+                        
+                        <button ng-if="!e.taken" ng-click="startExam(e)" class="bg-green-600 text-white px-5 py-2 rounded-lg font-bold shadow-md hover:bg-green-700 transform hover:scale-105 transition-all">Start</button>
+                        
+                        <div ng-if="e.taken" class="text-right">
+                            <div ng-if="e.showImmediate" class="text-2xl font-bold text-green-600">{{e.score}}/{{e.total}}</div>
+                            <div ng-if="!e.showImmediate" class="bg-orange-100 text-orange-600 text-xs font-bold px-2 py-1 rounded">Pending</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="submitAssignmentModal" class="modal-backdrop">
+             <div class="modal-panel">
+                <span class="absolute top-4 right-4 cursor-pointer text-slate-400" ng-click="closeModal('submitAssignmentModal')"><i class="fas fa-times"></i></span>
+                <h2 class="text-lg font-bold text-slate-800 mb-1">Submit Assignment</h2>
+                <p class="text-sm text-green-600 font-bold mb-4">{{ activeAssignment.title }}</p>
+                <form ng-submit="submitAssignment()" class="space-y-4">
+                    <textarea ng-model="submissionData.content" class="input-modern h-32" placeholder="Type your answer here..."></textarea>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-dashed border-slate-300">
+                        <input type="file" file-model="submissionData.file" class="text-sm text-slate-500 w-full">
+                    </div>
+                    <button type="submit" class="btn-primary w-full">Submit</button>
+                </form>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
