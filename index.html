@@ -75,10 +75,10 @@
                     </form>
 
                     <div class="mt-8 text-center">
-                         <p class="text-sm text-gray-500" ng-if="authMode === 'login' && loginRole === 'admin'">
+                         <p class="text-sm text-gray-500" ng-show="authMode === 'login' && loginRole === 'admin'">
                             New Admin? <a href="#" ng-click="authMode = 'register'" class="text-green-600 font-bold hover:underline">Create Account</a>
                         </p>
-                        <p class="text-sm text-gray-500" ng-if="authMode === 'register'">
+                        <p class="text-sm text-gray-500" ng-show="authMode === 'register'">
                             Already have an account? <a href="#" ng-click="authMode = 'login'" class="text-green-600 font-bold hover:underline">Login</a>
                         </p>
                     </div>
@@ -214,7 +214,7 @@
                                     </div>
                                     
                                     <div class="grid grid-cols-2 gap-4">
-                                        <button ng-click="authMode = 'register'" class="hidden"></button> <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
                                             <h3 class="text-xs font-bold uppercase text-slate-500 mb-3">New Teacher</h3>
                                             <form ng-submit="createUser('teacher')" class="space-y-2">
                                                 <input type="text" ng-model="newUser.teacher.name" placeholder="Name" class="input-sm">
