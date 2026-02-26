@@ -248,6 +248,7 @@ app.post('/api/toggle-exam-results', async (req, res) => {
 
 // --- 5. CATCH-ALL ROUTE ---
 // Catch all unhandled requests and send them to the frontend
+// --- 5. CATCH-ALL ROUTE ---
 app.use((req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
