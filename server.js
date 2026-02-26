@@ -248,7 +248,7 @@ app.post('/api/toggle-exam-results', async (req, res) => {
 
 // --- 5. CATCH-ALL ROUTE ---
 // If the user requests a page that isn't an API route, send them to the frontend
-app.get('*', (req, res) => {
+app.get('/(.*)', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
