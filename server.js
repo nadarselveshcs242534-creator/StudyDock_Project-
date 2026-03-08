@@ -6,19 +6,17 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const path = require('path'); // Added path module for routing
+const path = require('path');
 
 const app = express();
-// Increase limit for file uploads (Notes/Assignments/Profile Pics)
-app.use(bodyParser.json({ limit: '10mb' }));
+// INCREASED: Bumped limit to 50mb because mobile phone pictures are huge!
+app.use(bodyParser.json({ limit: '50mb' }));
 app.use(cors());
 
 // --- 1. SERVE FRONTEND FILES ---
-// This tells Express to make everything in your 'public' folder available to the internet
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- 2. MONGODB CONNECTION ---
-// Uses the Render environment variable for live, or local database for testing
 const mongoURI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/studydock';
 
 mongoose.connect(mongoURI) 
@@ -88,7 +86,7 @@ const AIModelSchema = new mongoose.Schema({
     slope: Number,
     intercept: Number,
     rSquared: Number,
-    points: Array // Stores {x, y, name} for plotting
+    points: Array 
 });
 
 // Models
@@ -125,12 +123,21 @@ app.post('/api/login', async (req, res) => {
     else res.status(401).json({ error: "Invalid Credentials" });
 });
 
+// FIXED: Now returns the REAL error instead of hardcoding "Email exists"
 app.post('/api/register', async (req, res) => {
     try {
         const newUser = new Users(req.body);
         await newUser.save();
         res.json({ success: true });
-    } catch (e) { res.status(400).json({ error: "Email exists" }); }
+    } catch (e) { 
+        console.error("DB Save Error:", e);
+        // If it's a true duplicate, specify it. Otherwise, send the real database error message.
+        if (e.code === 11000) {
+            res.status(400).json({ error: "Duplicate error: This email is already inside the database." });
+        } else {
+            res.status(400).json({ error: e.message }); 
+        }
+    }
 });
 
 app.post('/api/update-profile', async (req, res) => {
@@ -141,7 +148,6 @@ app.post('/api/update-profile', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- UPDATE USER CLASSES ---
 app.post('/api/update-user-classes', async (req, res) => {
     const { userId, classIds } = req.body;
     try {
@@ -150,7 +156,6 @@ app.post('/api/update-user-classes', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- DELETE USER ---
 app.post('/api/delete-user', async (req, res) => {
     const { userId } = req.body;
     try {
@@ -159,15 +164,18 @@ app.post('/api/delete-user', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- CREATE ROUTES ---
 app.post('/api/classes', async (req, res) => {
     await new Classes(req.body).save();
     res.json({ success: true });
 });
 
 app.post('/api/users', async (req, res) => {
-    await new Users(req.body).save();
-    res.json({ success: true });
+    try {
+        await new Users(req.body).save();
+        res.json({ success: true });
+    } catch (e) {
+        res.status(400).json({ error: e.message });
+    }
 });
 
 app.post('/api/subjects', async (req, res) => {
@@ -196,7 +204,6 @@ app.post('/api/exams', async (req, res) => {
     res.json({ success: true });
 });
 
-// --- SAVE AI MODEL ---
 app.post('/api/save-ai-model', async (req, res) => {
     const { classId, data } = req.body;
     try {
@@ -209,7 +216,6 @@ app.post('/api/save-ai-model', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- GET AI MODEL ---
 app.post('/api/get-ai-model', async (req, res) => {
     const { classId } = req.body;
     try {
@@ -218,7 +224,6 @@ app.post('/api/get-ai-model', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- UPDATES (Submissions & Grades & Results) ---
 app.post('/api/submit-assignment', async (req, res) => {
     const { assignId, studentId, submission } = req.body;
     const updateKey = `submissions.${studentId}`;
@@ -247,9 +252,7 @@ app.post('/api/toggle-exam-results', async (req, res) => {
 });
 
 // --- 5. CATCH-ALL ROUTE ---
-// Catch all unhandled requests and send them to the frontend
-// --- 5. CATCH-ALL ROUTE ---
-app.get('/', (req, res) => {
+app.use((req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
