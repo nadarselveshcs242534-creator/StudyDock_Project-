@@ -7,13 +7,10 @@ app.directive('fileModel', ['$parse', function ($parse) {
         link: function(scope, element, attrs) {
             var model = $parse(attrs.fileModel);
             var modelSetter = model.assign;
-            
             element.bind('change', function(){
                 var reader = new FileReader();
                 reader.onload = function(e) {
-                    scope.$apply(function(){
-                        modelSetter(scope, e.target.result); // Save Base64
-                    });
+                    scope.$apply(function(){ modelSetter(scope, e.target.result); });
                 };
                 reader.readAsDataURL(element[0].files[0]);
             });
@@ -24,43 +21,29 @@ app.directive('fileModel', ['$parse', function ($parse) {
 // --- MAIN CONTROLLER ---
 app.controller('MainController', function($scope, $http, $timeout) {
     
-    // Config - FIXED: Changed to relative path for Render deployment
     const API_URL = "/api";
     $scope.currentUser = null;
     $scope.authMode = 'login';
     $scope.loginData = { role: 'admin' };
     $scope.regData = {};
-    $scope.newUser = { teacher: {}, student: { classSelection: {} } };
+    $scope.newUser = { teacher: {}, student: { selectedClasses: {} } };
     $scope.newClass = {};
     $scope.newSubject = {};
-    $scope.db = { classes: [], users: [], assignments: [], attendance: [], exams: [] };
-    $scope.isLoading = false;
+    $scope.db = { classes: [], users: [], assignments: [], attendance: [], notes: [], exams: [] };
     
-    // Modal & Tab Logic
-    $scope.activeTab = 'dashboard';
-    $scope.attData = { records: {} };
-    $scope.aiData = {};
-    $scope.aiReport = null;
-
-    // --- UTILS ---
-    $scope.showModal = function(id) { document.getElementById(id).style.display = 'block'; };
+    // --- MODALS (Fixed Naming!) ---
+    $scope.openModal = function(id) { document.getElementById(id).style.display = 'block'; };
     $scope.closeModal = function(id) { document.getElementById(id).style.display = 'none'; };
-    
+
     // --- AUTHENTICATION ---
     $scope.setLoginRole = function(role) { $scope.loginData.role = role; };
-
     $scope.login = function() {
-        $scope.isLoading = true;
         $http.post(API_URL + '/login', $scope.loginData).then(function(res) {
             $scope.currentUser = res.data;
             if(!$scope.currentUser.classIds) $scope.currentUser.classIds = [];
             $scope.syncData();
-        }, function(err) {
-            alert('Invalid Credentials');
-        }).finally(() => $scope.isLoading = false);
+        }, function(err) { alert('Invalid Credentials'); });
     };
-
-    // FIXED: Upgraded with better error tracking
     $scope.registerAdmin = function() {
         var payload = angular.copy($scope.regData);
         payload.role = 'admin';
@@ -68,171 +51,179 @@ app.controller('MainController', function($scope, $http, $timeout) {
         $http.post(API_URL + '/register', payload).then(function() {
             alert('Admin Created! Please Login.');
             $scope.authMode = 'login';
-            $scope.regData = {}; // Clear the form
+            $scope.regData = {}; 
         }, function(err) {
-            // This will pop up the EXACT error if it fails!
             alert('Registration Failed: ' + (err.data && err.data.error ? err.data.error : 'Network Error'));
-            console.error("Full Error:", err);
         });
     };
+    $scope.logout = function() { window.location.reload(); };
 
-    $scope.logout = function() {
-        window.location.reload();
-    };
-
-    // --- DATA SYNC ---
+    // --- DATA SYNC & HELPERS ---
     $scope.syncData = function() {
         $http.get(API_URL + '/sync-data').then(function(res) {
             $scope.db = res.data;
+            $scope.updateStudentDashboard();
         });
     };
+    $scope.getClassDetails = function(id) { return $scope.db.classes.find(c => c.id == id) || {name: 'Unknown'}; };
+    $scope.getUserName = function(id) { var u = $scope.db.users.find(u => u.id == id); return u ? u.name : 'Unknown'; };
+    $scope.isEmpty = function(obj) { return !obj || Object.keys(obj).length === 0; };
 
-    // --- ADMIN ACTIONS ---
+    // --- ADMIN DASHBOARD ---
     $scope.createClass = function() {
         var payload = { id: Date.now(), name: $scope.newClass.name, section: $scope.newClass.section, subjects: [] };
-        $http.post(API_URL + '/classes', payload).then(function() {
-            $scope.syncData();
-            $scope.newClass = {};
-            alert('Class Created');
-        });
+        $http.post(API_URL + '/classes', payload).then(function() { $scope.syncData(); $scope.newClass = {}; alert('Class Created'); });
     };
-
     $scope.addSubject = function() {
-        $http.post(API_URL + '/subjects', { classId: $scope.newSubject.classId, subject: $scope.newSubject.name })
-            .then(function() { $scope.syncData(); alert('Subject Added'); });
+        $http.post(API_URL + '/subjects', { classId: $scope.newSubject.classId, subject: $scope.newSubject.name }).then(function() { $scope.syncData(); $scope.newSubject={}; alert('Subject Added'); });
     };
-
     $scope.createUser = function(role) {
         var userData = role === 'teacher' ? $scope.newUser.teacher : $scope.newUser.student;
         var classIds = [];
-        
-        if(role === 'student') {
-            for(var cid in userData.classSelection) {
-                if(userData.classSelection[cid]) classIds.push(parseInt(cid));
-            }
+        if(role === 'student' && userData.selectedClasses) {
+            for(var cid in userData.selectedClasses) { if(userData.selectedClasses[cid]) classIds.push(parseInt(cid)); }
         }
-
-        var payload = {
-            id: Date.now(),
-            name: userData.name,
-            email: userData.email,
-            password: userData.password,
-            role: role,
-            classIds: classIds
-        };
-
-        $http.post(API_URL + '/users', payload).then(function() {
-            $scope.syncData();
-            alert(role + ' Created');
-            $scope.newUser = { teacher: {}, student: { classSelection: {} } };
-        });
+        var payload = { id: Date.now(), name: userData.name, email: userData.email, password: userData.password, role: role, classIds: classIds };
+        $http.post(API_URL + '/users', payload).then(function() { $scope.syncData(); alert(role + ' Created'); $scope.newUser = { teacher: {}, student: { selectedClasses: {} } }; });
+    };
+    $scope.openManageStudentModal = function() { $scope.manageStudentId = ""; $scope.editStudentClasses = {}; $scope.openModal('manageStudentModal'); };
+    $scope.loadStudentForEdit = function() {
+        var s = $scope.db.users.find(u => u.id == $scope.manageStudentId);
+        $scope.editStudentClasses = {};
+        if(s && s.classIds) s.classIds.forEach(cid => $scope.editStudentClasses[cid] = true);
+    };
+    $scope.saveStudentClasses = function() {
+        var classIds = [];
+        for(var cid in $scope.editStudentClasses) { if($scope.editStudentClasses[cid]) classIds.push(parseInt(cid)); }
+        $http.post(API_URL + '/update-user-classes', {userId: $scope.manageStudentId, classIds: classIds}).then(function() { $scope.syncData(); alert('Classes Updated'); });
+    };
+    $scope.deleteStudent = function() {
+        if(!confirm("Are you sure?")) return;
+        $http.post(API_URL + '/delete-user', {userId: $scope.manageStudentId}).then(function() { $scope.syncData(); $scope.closeModal('manageStudentModal'); alert('User Deleted'); });
     };
 
-    // --- TEACHER ACTIONS ---
-    $scope.availableSubjects = [];
-    $scope.updateSubjects = function(classId) {
-        var cls = $scope.db.classes.find(c => c.id == classId);
-        $scope.availableSubjects = cls ? cls.subjects : [];
+    // --- TEACHER DASHBOARD ---
+    
+    // 1. Attendance
+    $scope.attData = { students: [] };
+    $scope.loadSubjectsForAttendance = function() {
+        var cls = $scope.db.classes.find(c => c.id == $scope.attData.classId);
+        $scope.attData.availableSubjects = cls ? cls.subjects : [];
+        $scope.attData.students = $scope.db.users.filter(u => u.role === 'student' && u.classIds.includes(parseInt($scope.attData.classId))).map(s => ({id: s.id, name: s.name, status: 'Present'}));
     };
-
-    $scope.getStudentsForClass = function(classId) {
-        if(!classId) return [];
-        return $scope.db.users.filter(u => u.role === 'student' && u.classIds.includes(parseInt(classId)));
-    };
-
     $scope.submitAttendance = function() {
+        var records = {};
+        $scope.attData.students.forEach(s => records[s.id] = s.status);
+        var payload = { date: $scope.attData.date, time: new Date().toLocaleTimeString(), classId: $scope.attData.classId, subject: $scope.attData.subject, records: records };
+        $http.post(API_URL + '/attendance', payload).then(function() { $scope.syncData(); $scope.closeModal('attendanceModal'); alert('Attendance Saved'); });
+    };
+    
+    // 2. Assignments
+    $scope.assignData = {};
+    $scope.loadSubjectsForAssign = function() {
+        var cls = $scope.db.classes.find(c => c.id == $scope.assignData.classId);
+        $scope.assignData.availableSubjects = cls ? cls.subjects : [];
+    };
+    $scope.postAssignment = function() {
+        var payload = angular.copy($scope.assignData);
+        payload.id = Date.now();
+        payload.submissions = {};
+        $http.post(API_URL + '/assignments', payload).then(function() { $scope.syncData(); $scope.closeModal('assignmentModal'); alert('Posted'); });
+    };
+    $scope.saveGrade = function(assignId, studentId, grade) {
+        $http.post(API_URL + '/grade-assignment', {assignId: assignId, studentId: studentId, grade: grade}).then(function() { alert('Graded!'); $scope.syncData(); });
+    };
+
+    // 3. Materials / Notes
+    $scope.noteData = {};
+    $scope.loadSubjectsForNote = function() {
+        var cls = $scope.db.classes.find(c => c.id == $scope.noteData.classId);
+        $scope.noteData.availableSubjects = cls ? cls.subjects : [];
+    };
+    $scope.postNote = function() {
+        var payload = angular.copy($scope.noteData);
+        payload.id = Date.now();
+        payload.date = new Date().toISOString().split('T')[0];
+        payload.fileData = $scope.noteData.file;
+        $http.post(API_URL + '/notes', payload).then(function() { $scope.syncData(); $scope.closeModal('notesModal'); alert('Material Uploaded!'); });
+    };
+
+    // 4. Exams
+    $scope.examData = { questions: [] };
+    $scope.loadSubjectsForExam = function() {
+        var cls = $scope.db.classes.find(c => c.id == $scope.examData.classId);
+        $scope.examData.availableSubjects = cls ? cls.subjects : [];
+    };
+    $scope.addExamQuestion = function() { $scope.examData.questions.push({text: '', options: ['','','',''], correct: 1}); };
+    $scope.publishExam = function() {
+        var payload = angular.copy($scope.examData);
+        payload.id = Date.now();
+        payload.results = {};
+        $http.post(API_URL + '/exams', payload).then(function() { $scope.syncData(); $scope.closeModal('createExamModal'); alert('Exam Published'); });
+    };
+
+    // --- STUDENT DASHBOARD ---
+    $scope.studentData = { assignments: [], notes: [], exams: [], attendance: [] };
+    
+    $scope.updateStudentDashboard = function() {
+        if(!$scope.currentUser || $scope.currentUser.role !== 'student') return;
+        
+        $scope.studentData.assignments = $scope.db.assignments.filter(a => $scope.currentUser.classIds.includes(parseInt(a.classId))).map(a => {
+            var cls = $scope.getClassDetails(a.classId);
+            return {...a, className: cls.name, submission: a.submissions && a.submissions[$scope.currentUser.id]};
+        });
+        
+        $scope.studentData.notes = $scope.db.notes.filter(n => $scope.currentUser.classIds.includes(parseInt(n.classId)));
+        
+        $scope.studentData.exams = $scope.db.exams.filter(e => $scope.currentUser.classIds.includes(parseInt(e.classId))).map(e => {
+            let taken = e.results && e.results[$scope.currentUser.id];
+            return {...e, taken: !!taken, score: taken ? taken.score : 0, total: taken ? taken.total : 0};
+        });
+        $scope.hasPendingExams = $scope.studentData.exams.some(e => !e.taken);
+        
+        $scope.studentData.attendance = [];
+        $scope.db.attendance.filter(a => $scope.currentUser.classIds.includes(parseInt(a.classId))).forEach(a => {
+            if(a.records && a.records[$scope.currentUser.id]) {
+                $scope.studentData.attendance.push({date: a.date, subject: a.subject, status: a.records[$scope.currentUser.id]});
+            }
+        });
+    };
+
+    $scope.openSubmitAssignmentModal = function(a) {
+        $scope.activeAssignment = a;
+        $scope.submissionData = {};
+        $scope.openModal('submitAssignmentModal');
+    };
+    $scope.submitAssignment = function() {
         var payload = {
-            date: new Date().toISOString().split('T')[0],
-            time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-            classId: $scope.attData.classId,
-            subject: $scope.attData.subject,
-            records: $scope.attData.records
+            assignId: $scope.activeAssignment.id,
+            studentId: $scope.currentUser.id,
+            submission: { content: $scope.submissionData.content, fileData: $scope.submissionData.file, date: new Date().toISOString().split('T')[0] }
         };
-        $http.post(API_URL + '/attendance', payload).then(function() {
-            $scope.syncData();
-            $scope.closeModal('attendanceModal');
-            alert('Attendance Saved');
+        $http.post(API_URL + '/submit-assignment', payload).then(function() { $scope.syncData(); $scope.closeModal('submitAssignmentModal'); alert('Submitted'); });
+    };
+    $scope.openStudentExamModal = function() { $scope.openModal('studentExamListModal'); };
+    $scope.startExam = function(e) {
+        $scope.activeExam = e;
+        $scope.examAnswers = [];
+        $scope.openModal('takeExamModal');
+        $scope.closeModal('studentExamListModal');
+    };
+    $scope.submitExam = function() {
+        var score = 0;
+        $scope.activeExam.questions.forEach((q, i) => { if (parseInt($scope.examAnswers[i]) === (q.correct - 1)) score++; });
+        var payload = { examId: $scope.activeExam.id, studentId: $scope.currentUser.id, result: { score: score, total: $scope.activeExam.questions.length } };
+        $http.post(API_URL + '/submit-exam', payload).then(function() { $scope.syncData(); $scope.closeModal('takeExamModal'); alert('Exam Submitted! Score: ' + score); });
+    };
+
+    // --- PROFILE ---
+    $scope.saveProfilePic = function() {
+        $http.post(API_URL + '/update-profile', {userId: $scope.currentUser.id, profilePic: $scope.newProfilePicFile}).then(function(){
+            $scope.currentUser.profilePic = $scope.newProfilePicFile;
+            $scope.closeModal('updateProfileModal');
         });
     };
-
-    // --- STUDENT DATA GETTERS ---
-    $scope.getStudentAssignments = function() {
-        if(!$scope.currentUser) return [];
-        return $scope.db.assignments.filter(a => $scope.currentUser.classIds.includes(parseInt(a.classId)));
-    };
-
-    $scope.getStudentAttendance = function() {
-        if(!$scope.currentUser) return [];
-        return $scope.db.attendance.filter(a => a.records && a.records[$scope.currentUser.id]);
-    };
-
-    // --- AI & LINEAR REGRESSION LOGIC ---
-    $scope.generateAIReport = function() {
-        var classId = $scope.aiData.classId;
-        if(!classId) return alert('Select Class');
-
-        var students = $scope.getStudentsForClass(classId);
-        var points = [];
-
-        students.forEach(s => {
-            // X: Attendance %
-            var myAtt = $scope.db.attendance.filter(a => a.classId == classId && a.records && a.records[s.id]);
-            var presentCount = myAtt.filter(a => a.records[s.id] === 'Present').length;
-            var x = myAtt.length > 0 ? (presentCount / myAtt.length) * 100 : 0;
-
-            // Y: Avg Exam Score %
-            var myExams = $scope.db.exams.filter(e => e.classId == classId && e.results && e.results[s.id]);
-            var scoreSum = 0;
-            myExams.forEach(e => {
-                 scoreSum += (e.results[s.id].score / e.results[s.id].total) * 100;
-            });
-            var y = myExams.length > 0 ? (scoreSum / myExams.length) : 0;
-
-            if(myExams.length > 0) points.push({x: x, y: y});
-        });
-
-        if(points.length < 2) return alert('Need more student data for regression.');
-
-        // 1. Calculate Slope (m) and Intercept (b)
-        var n = points.length;
-        var sumX = points.reduce((a, b) => a + b.x, 0);
-        var sumY = points.reduce((a, b) => a + b.y, 0);
-        var sumXY = points.reduce((a, b) => a + (b.x * b.y), 0);
-        var sumXX = points.reduce((a, b) => a + (b.x * b.x), 0);
-
-        var slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-        var intercept = (sumY - slope * sumX) / n;
-
-        // R-Squared calculation
-        var avgY = sumY / n;
-        var ssTot = points.reduce((a, b) => a + Math.pow(b.y - avgY, 2), 0);
-        var ssRes = points.reduce((a, b) => a + Math.pow(b.y - (slope * b.x + intercept), 2), 0);
-        var rSquared = 1 - (ssRes / ssTot);
-
-        $scope.aiReport = { slope: slope, intercept: intercept, rSquared: rSquared };
-
-        // 2. Render Chart
-        $timeout(function() {
-            var ctx = document.getElementById('aiChartAngular').getContext('2d');
-            if(window.myAiChart) window.myAiChart.destroy();
-
-            var scatterData = points.map(p => ({ x: p.x, y: p.y }));
-            var lineData = [
-                { x: 0, y: intercept },
-                { x: 100, y: (slope * 100) + intercept }
-            ];
-
-            window.myAiChart = new Chart(ctx, {
-                type: 'scatter',
-                data: {
-                    datasets: [
-                        { label: 'Students', data: scatterData, backgroundColor: '#9333ea' },
-                        { label: 'Trend Line', data: lineData, type: 'line', borderColor: '#ef4444', borderWidth: 2, pointRadius: 0 }
-                    ]
-                },
-                options: { scales: { x: { type: 'linear', position: 'bottom', min: 0, max: 100 }, y: { min: 0, max: 100 } } }
-            });
-        }, 100);
-    };
-
+    
+    // --- ANALYTICS PLACEHOLDER ---
+    $scope.generateAIReport = function() { alert("AI Module Triggered! Student data ready for regression."); };
 });
