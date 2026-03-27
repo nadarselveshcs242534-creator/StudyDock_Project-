@@ -164,6 +164,16 @@ app.post('/api/delete-user', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// NEW: Delete Class and Un-enroll students
+app.post('/api/delete-class', async (req, res) => {
+    const { classId } = req.body;
+    try {
+        await Classes.deleteOne({ id: classId });
+        await Users.updateMany({}, { $pull: { classIds: classId } });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/classes', async (req, res) => {
     await new Classes(req.body).save();
     res.json({ success: true });
