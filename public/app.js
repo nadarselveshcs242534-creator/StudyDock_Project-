@@ -103,6 +103,17 @@ app.controller('MainController', function($scope, $http, $timeout) {
         if(!confirm("Are you sure?")) return;
         $http.post(API_URL + '/delete-user', {userId: $scope.manageStudentId}).then(function() { $scope.syncData(); $scope.closeModal('manageStudentModal'); alert('User Deleted'); });
     };
+    
+    // NEW: Delete Class Function
+    $scope.deleteClass = function(classId, className) {
+        if(!confirm("⚠️ Are you sure you want to completely delete '" + className + "'? This will also un-enroll all students from it. This cannot be undone.")) return;
+        
+        $http.post(API_URL + '/delete-class', {classId: classId}).then(function() { 
+            $scope.syncData(); 
+            alert('Class Deleted Successfully'); 
+        });
+    };
+    
     $scope.resetDatabase = function() { alert("Factory Reset requires backend API configuration."); };
 
     // --- TEACHER: ATTENDANCE ---
@@ -131,7 +142,6 @@ app.controller('MainController', function($scope, $http, $timeout) {
         payload.submissions = {};
         $http.post(API_URL + '/assignments', payload).then(function() { $scope.syncData(); $scope.closeModal('assignmentModal'); alert('Posted'); });
     };
-    // FIXED: Real grading logic
     $scope.saveGrade = function(assignId, studentId, grade) {
         if (!grade) return alert("Please enter a grade before saving.");
         $http.post(API_URL + '/grade-assignment', {assignId: assignId, studentId: studentId, grade: grade}).then(function() { 
@@ -168,7 +178,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
         $http.post(API_URL + '/exams', payload).then(function() { $scope.syncData(); $scope.closeModal('createExamModal'); alert('Exam Published'); });
     };
 
-    // --- TEACHER: AI & LINEAR REGRESSION (FIXED) ---
+    // --- TEACHER: AI & LINEAR REGRESSION ---
     $scope.generateAIReport = function() {
         var classId = $scope.aiSelectedClass;
         if(!classId) return alert('Select a class to generate the report.');
@@ -244,7 +254,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
         }, 200);
     };
 
-    // --- TEACHER: CSV EXPORTS (FIXED) ---
+    // --- TEACHER: CSV EXPORTS ---
     $scope.exportConfig = {};
     $scope.updateExportSubjects = function() {
         var cls = $scope.db.classes.find(c => c.id == $scope.exportConfig.classId);
@@ -283,7 +293,6 @@ app.controller('MainController', function($scope, $http, $timeout) {
     $scope.exportMonthlyAttendance = function(subwise) {
         if (!$scope.exportConfig.classId || !$scope.exportConfig.month) return alert("Select a class and month!");
         var csv = "Student Name,Subject,Month,Total Present,Total Absent\n";
-        // Month format from input is usually YYYY-MM
         var records = $scope.db.attendance.filter(a => a.classId == $scope.exportConfig.classId && a.date && a.date.startsWith($scope.exportConfig.month));
         if (subwise && $scope.exportConfig.subjectMonth) records = records.filter(a => a.subject === $scope.exportConfig.subjectMonth);
         
@@ -387,23 +396,20 @@ app.controller('MainController', function($scope, $http, $timeout) {
         $http.post(API_URL + '/submit-assignment', payload).then(function() { $scope.syncData(); $scope.closeModal('submitAssignmentModal'); alert('Submitted'); });
     };
     
-    // FIXED: Real exam submission and scoring logic
     $scope.openStudentExamModal = function() { $scope.openModal('studentExamListModal'); };
     $scope.startExam = function(e) {
         $scope.activeExam = e;
-        $scope.examAnswers = {}; // Changed to object to track dynamic radio inputs safely
+        $scope.examAnswers = {}; 
         $scope.openModal('takeExamModal');
         $scope.closeModal('studentExamListModal');
     };
     $scope.submitExam = function() {
-        // Validation check
         if (Object.keys($scope.examAnswers).length !== $scope.activeExam.questions.length) {
             return alert("You must answer all questions before submitting!");
         }
 
         var score = 0;
         $scope.activeExam.questions.forEach((q, i) => { 
-            // The options are 0-indexed, but the teacher's "correct answer" input was 1-indexed (1-4).
             var studentAnswerIndex = parseInt($scope.examAnswers[i]);
             var correctAnswerIndex = parseInt(q.correct) - 1; 
             
