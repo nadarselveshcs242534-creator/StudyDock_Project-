@@ -155,7 +155,6 @@ app.controller('MainController', function($scope, $http, $timeout) {
         $scope.attData.students = $scope.db.users.filter(u => u.role === 'student' && u.classIds.includes(parseInt($scope.attData.classId))).map(s => ({id: s.id, name: s.name, status: 'Present'}));
     };
     
-    // FIXED: Safely format the date before saving so the database doesn't get messed up timestamps
     $scope.submitAttendance = function() {
         var records = {};
         $scope.attData.students.forEach(s => records[s.id] = s.status);
@@ -177,7 +176,6 @@ app.controller('MainController', function($scope, $http, $timeout) {
         $scope.assignData.availableSubjects = cls ? cls.subjects : [];
     };
     
-    // FIXED: Safely format assignment due dates
     $scope.postAssignment = function() {
         var payload = angular.copy($scope.assignData);
         payload.id = Date.now();
@@ -222,7 +220,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
         $http.post(API_URL + '/exams', payload).then(function() { $scope.syncData(); $scope.closeModal('createExamModal'); alert('Exam Published'); });
     };
 
-    // --- TEACHER: AI & LINEAR REGRESSION ---
+    // --- TEACHER: AI & LINEAR REGRESSION (100% FIXED) ---
     $scope.generateAIReport = function() {
         var classId = $scope.aiSelectedClass;
         if(!classId) return alert('Select a class to generate the report.');
@@ -231,23 +229,29 @@ app.controller('MainController', function($scope, $http, $timeout) {
         var points = [];
         $scope.aiData.studentReports = []; 
 
-        if(students.length === 0) return alert("No students found in this class.");
+        // Failsafe 1: Don't panic if the class is totally empty
+        if(students.length === 0) return alert("No students found in this class yet.");
 
         students.forEach(s => {
+            // Calculate real attendance (or default to 0%)
             var myAtt = $scope.db.attendance.filter(a => a.classId == classId && a.records && a.records[s.id]);
             var presentCount = myAtt.filter(a => a.records[s.id] === 'Present').length;
             var x = myAtt.length > 0 ? (presentCount / myAtt.length) * 100 : 0;
 
+            // Calculate real exam scores (or default to 0%)
             var myExams = $scope.db.exams.filter(e => e.classId == classId && e.results && e.results[s.id]);
             var scoreSum = 0;
-            myExams.forEach(e => { scoreSum += (e.results[s.id].score / e.results[s.id].total) * 100; });
+            myExams.forEach(e => { 
+                if(e.results[s.id].total > 0) scoreSum += (e.results[s.id].score / e.results[s.id].total) * 100; 
+            });
             var y = myExams.length > 0 ? (scoreSum / myExams.length) : 0;
 
-            if(myExams.length > 0) points.push({x: x, y: y});
+            // ALWAYS push the student to the graph, even if they have 0 data
+            points.push({x: x, y: y, name: s.name});
 
-            var status = "Stable", color = "green", weak = "";
-            if (y < 50) { status = "Critical"; color = "red"; weak = "Low exam retention."; }
-            else if (x < 70) { status = "At Risk"; color = "gray"; weak = "Poor attendance is affecting potential."; }
+            var status = "Stable", color = "green", weak = "None";
+            if (y < 50) { status = "Critical"; color = "red"; weak = "Low exam scores."; }
+            else if (x < 70) { status = "At Risk"; color = "gray"; weak = "Poor attendance."; }
 
             $scope.aiData.studentReports.push({
                 name: s.name,
@@ -260,17 +264,25 @@ app.controller('MainController', function($scope, $http, $timeout) {
             });
         });
 
-        if(points.length < 2) return alert('Need at least 2 students with exam data to plot the regression chart.');
+        // Failsafe 2: Safe Math Regression
+        var slope = 0;
+        var intercept = 50; // Default flat line if there isn't enough data yet
+        
+        if (points.length >= 2) {
+            var n = points.length;
+            var sumX = points.reduce((a, b) => a + b.x, 0);
+            var sumY = points.reduce((a, b) => a + b.y, 0);
+            var sumXY = points.reduce((a, b) => a + (b.x * b.y), 0);
+            var sumXX = points.reduce((a, b) => a + (b.x * b.x), 0);
+            
+            var denominator = (n * sumXX - sumX * sumX);
+            if (denominator !== 0) {
+                slope = (n * sumXY - sumX * sumY) / denominator;
+                intercept = (sumY - slope * sumX) / n;
+            }
+        }
 
-        var n = points.length;
-        var sumX = points.reduce((a, b) => a + b.x, 0);
-        var sumY = points.reduce((a, b) => a + b.y, 0);
-        var sumXY = points.reduce((a, b) => a + (b.x * b.y), 0);
-        var sumXX = points.reduce((a, b) => a + (b.x * b.x), 0);
-
-        var slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-        var intercept = (sumY - slope * sumX) / n;
-
+        // Draw the Chart
         $timeout(function() {
             var canvas = document.getElementById('aiChart');
             if(!canvas) return;
@@ -288,7 +300,13 @@ app.controller('MainController', function($scope, $http, $timeout) {
                         { label: 'AI Trend Line', data: lineData, type: 'line', borderColor: '#ef4444', borderWidth: 2, pointRadius: 0 }
                     ]
                 },
-                options: { scales: { x: { type: 'linear', position: 'bottom', min: 0, max: 100, title: {display: true, text: 'Attendance %'} }, y: { min: 0, max: 100, title: {display: true, text: 'Exam Score %'} } } }
+                options: { 
+                    maintainAspectRatio: false, // REQUIRED for Tailwind fixed heights!
+                    scales: { 
+                        x: { type: 'linear', position: 'bottom', min: 0, max: 100, title: {display: true, text: 'Attendance %'} }, 
+                        y: { min: 0, max: 100, title: {display: true, text: 'Exam Score %'} } 
+                    } 
+                }
             });
         }, 200);
     };
@@ -314,7 +332,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
 
     function formatToDateString(dateObj) {
         if (!dateObj) return "";
-        if (typeof dateObj === 'string') return dateObj.split('T')[0]; // Safely strips out messy timestamps
+        if (typeof dateObj === 'string') return dateObj.split('T')[0];
         let d = new Date(dateObj);
         return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0') + "-" + String(d.getDate()).padStart(2, '0');
     }
@@ -334,7 +352,6 @@ app.controller('MainController', function($scope, $http, $timeout) {
         let targetDate = formatToDateString($scope.exportConfig.date);
         let csv = "Student ID,Student Name,Subject,Date,Status\n";
 
-        // FIXED: Uses 'startsWith' so it safely matches even if old data has messy timestamps
         let records = $scope.db.attendance.filter(a => a.classId == $scope.exportConfig.classId && a.date && a.date.startsWith(targetDate));
         if (subwise) records = records.filter(a => a.subject === $scope.exportConfig.subject);
 
@@ -345,7 +362,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
         students.forEach(s => {
             records.forEach(r => {
                 let status = (r.records && r.records[s.id]) ? r.records[s.id] : "Not Marked";
-                let printDate = r.date.split('T')[0]; // Cleans the display date
+                let printDate = r.date.split('T')[0]; 
                 csv += `"${s.id}","${s.name}","${r.subject}","${printDate}","${status}"\n`;
             });
         });
