@@ -154,10 +154,19 @@ app.controller('MainController', function($scope, $http, $timeout) {
         $scope.attData.availableSubjects = cls ? cls.subjects : [];
         $scope.attData.students = $scope.db.users.filter(u => u.role === 'student' && u.classIds.includes(parseInt($scope.attData.classId))).map(s => ({id: s.id, name: s.name, status: 'Present'}));
     };
+    
+    // FIXED: Safely format the date before saving so the database doesn't get messed up timestamps
     $scope.submitAttendance = function() {
         var records = {};
         $scope.attData.students.forEach(s => records[s.id] = s.status);
-        var payload = { date: $scope.attData.date, time: new Date().toLocaleTimeString(), classId: $scope.attData.classId, subject: $scope.attData.subject, records: records };
+        
+        var cleanDate = "";
+        if ($scope.attData.date) {
+            let d = new Date($scope.attData.date);
+            cleanDate = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0') + "-" + String(d.getDate()).padStart(2, '0');
+        }
+
+        var payload = { date: cleanDate, time: new Date().toLocaleTimeString(), classId: $scope.attData.classId, subject: $scope.attData.subject, records: records };
         $http.post(API_URL + '/attendance', payload).then(function() { $scope.syncData(); $scope.closeModal('attendanceModal'); alert('Attendance Saved'); });
     };
     
@@ -167,18 +176,22 @@ app.controller('MainController', function($scope, $http, $timeout) {
         var cls = $scope.db.classes.find(c => c.id == $scope.assignData.classId);
         $scope.assignData.availableSubjects = cls ? cls.subjects : [];
     };
+    
+    // FIXED: Safely format assignment due dates
     $scope.postAssignment = function() {
         var payload = angular.copy($scope.assignData);
         payload.id = Date.now();
         payload.submissions = {};
+        if (payload.due) {
+            let d = new Date(payload.due);
+            payload.due = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0') + "-" + String(d.getDate()).padStart(2, '0');
+        }
         $http.post(API_URL + '/assignments', payload).then(function() { $scope.syncData(); $scope.closeModal('assignmentModal'); alert('Posted'); });
     };
+    
     $scope.saveGrade = function(assignId, studentId, grade) {
         if (!grade) return alert("Please enter a grade before saving.");
-        $http.post(API_URL + '/grade-assignment', {assignId: assignId, studentId: studentId, grade: grade}).then(function() { 
-            alert('Grade Saved Successfully!'); 
-            $scope.syncData(); 
-        });
+        $http.post(API_URL + '/grade-assignment', {assignId: assignId, studentId: studentId, grade: grade}).then(function() { alert('Grade Saved Successfully!'); $scope.syncData(); });
     };
 
     // --- TEACHER: MATERIALS / NOTES ---
@@ -280,7 +293,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
         }, 200);
     };
 
-    // --- TEACHER: CSV EXPORTS (FULLY FIXED & DYNAMIC) ---
+    // --- TEACHER: CSV EXPORTS ---
     $scope.exportConfig = {};
     $scope.updateExportSubjects = function() {
         var cls = $scope.db.classes.find(c => c.id == $scope.exportConfig.classId);
@@ -301,7 +314,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
 
     function formatToDateString(dateObj) {
         if (!dateObj) return "";
-        if (typeof dateObj === 'string') return dateObj;
+        if (typeof dateObj === 'string') return dateObj.split('T')[0]; // Safely strips out messy timestamps
         let d = new Date(dateObj);
         return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0') + "-" + String(d.getDate()).padStart(2, '0');
     }
@@ -321,7 +334,8 @@ app.controller('MainController', function($scope, $http, $timeout) {
         let targetDate = formatToDateString($scope.exportConfig.date);
         let csv = "Student ID,Student Name,Subject,Date,Status\n";
 
-        let records = $scope.db.attendance.filter(a => a.classId == $scope.exportConfig.classId && a.date === targetDate);
+        // FIXED: Uses 'startsWith' so it safely matches even if old data has messy timestamps
+        let records = $scope.db.attendance.filter(a => a.classId == $scope.exportConfig.classId && a.date && a.date.startsWith(targetDate));
         if (subwise) records = records.filter(a => a.subject === $scope.exportConfig.subject);
 
         if (records.length === 0) return alert("No attendance records found for " + targetDate + "!");
@@ -331,7 +345,8 @@ app.controller('MainController', function($scope, $http, $timeout) {
         students.forEach(s => {
             records.forEach(r => {
                 let status = (r.records && r.records[s.id]) ? r.records[s.id] : "Not Marked";
-                csv += `"${s.id}","${s.name}","${r.subject}","${r.date}","${status}"\n`;
+                let printDate = r.date.split('T')[0]; // Cleans the display date
+                csv += `"${s.id}","${s.name}","${r.subject}","${printDate}","${status}"\n`;
             });
         });
         $scope.downloadCSV("Daily_Attendance_" + targetDate + ".csv", csv);
@@ -380,7 +395,8 @@ app.controller('MainController', function($scope, $http, $timeout) {
             assignments.forEach(a => {
                 let sub = a.submissions && a.submissions[s.id];
                 let grade = (sub && sub.grade) ? sub.grade : (sub ? "Submitted (Ungraded)" : "Missing");
-                csv += `"${s.id}","${s.name}","${a.title}","${a.subject}","${a.due}","${grade}"\n`;
+                let printDate = a.due ? a.due.split('T')[0] : "N/A";
+                csv += `"${s.id}","${s.name}","${a.title}","${a.subject}","${printDate}","${grade}"\n`;
             });
         });
         $scope.downloadCSV("Assignments_Report.csv", csv);
@@ -474,7 +490,8 @@ app.controller('MainController', function($scope, $http, $timeout) {
         $scope.studentData.attendance = [];
         $scope.db.attendance.filter(a => $scope.currentUser.classIds.includes(parseInt(a.classId))).forEach(a => {
             if(a.records && a.records[$scope.currentUser.id]) {
-                $scope.studentData.attendance.push({date: a.date, subject: a.subject, status: a.records[$scope.currentUser.id]});
+                let printDate = a.date ? a.date.split('T')[0] : "N/A";
+                $scope.studentData.attendance.push({date: printDate, subject: a.subject, status: a.records[$scope.currentUser.id]});
             }
         });
     };
