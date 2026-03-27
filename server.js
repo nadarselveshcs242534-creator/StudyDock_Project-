@@ -9,7 +9,6 @@ const bodyParser = require('body-parser');
 const path = require('path');
 
 const app = express();
-// INCREASED: Bumped limit to 50mb because mobile phone pictures are huge!
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(cors());
 
@@ -23,7 +22,7 @@ mongoose.connect(mongoURI)
     .then(() => console.log("✅ MongoDB Connected"))
     .catch(err => console.log("❌ DB Error:", err));
 
-// --- 3. SCHEMAS (Database Structure) ---
+// --- 3. SCHEMAS ---
 const ClassSchema = new mongoose.Schema({
     id: Number, 
     name: String,
@@ -100,7 +99,6 @@ const AIModels = mongoose.model('AIModel', AIModelSchema);
 
 // --- 4. API ROUTES ---
 
-// --- INITIAL LOAD & SYNC ---
 app.get('/api/sync-data', async (req, res) => {
     try {
         const data = {
@@ -115,7 +113,6 @@ app.get('/api/sync-data', async (req, res) => {
     } catch (e) { res.status(500).json({error: e.message}); }
 });
 
-// --- AUTH ---
 app.post('/api/login', async (req, res) => {
     const { email, password, role } = req.body;
     const user = await Users.findOne({ email, password, role });
@@ -123,7 +120,6 @@ app.post('/api/login', async (req, res) => {
     else res.status(401).json({ error: "Invalid Credentials" });
 });
 
-// FIXED: Now returns the REAL error instead of hardcoding "Email exists"
 app.post('/api/register', async (req, res) => {
     try {
         const newUser = new Users(req.body);
@@ -131,7 +127,6 @@ app.post('/api/register', async (req, res) => {
         res.json({ success: true });
     } catch (e) { 
         console.error("DB Save Error:", e);
-        // If it's a true duplicate, specify it. Otherwise, send the real database error message.
         if (e.code === 11000) {
             res.status(400).json({ error: "Duplicate error: This email is already inside the database." });
         } else {
@@ -164,12 +159,29 @@ app.post('/api/delete-user', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// NEW: Delete Class and Un-enroll students
 app.post('/api/delete-class', async (req, res) => {
     const { classId } = req.body;
     try {
         await Classes.deleteOne({ id: classId });
         await Users.updateMany({}, { $pull: { classIds: classId } });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// NEW: Update Class Name/Section
+app.post('/api/update-class', async (req, res) => {
+    const { classId, name, section } = req.body;
+    try {
+        await Classes.findOneAndUpdate({ id: classId }, { $set: { name, section } });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// NEW: Remove a specific subject from a class
+app.post('/api/remove-subject', async (req, res) => {
+    const { classId, subject } = req.body;
+    try {
+        await Classes.findOneAndUpdate({ id: classId }, { $pull: { subjects: subject } });
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -261,15 +273,11 @@ app.post('/api/toggle-exam-results', async (req, res) => {
     res.json({ success: true });
 });
 
-// --- 5. CATCH-ALL ROUTE ---
 app.use((req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Define the port
 const PORT = process.env.PORT || 5000;
-
-// Start the server
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
