@@ -1,5 +1,6 @@
 var app = angular.module('studyDockApp', []);
 
+// --- DIRECTIVE FOR FILE UPLOAD ---
 app.directive('fileModel', ['$parse', function ($parse) {
     return {
         restrict: 'A',
@@ -17,8 +18,10 @@ app.directive('fileModel', ['$parse', function ($parse) {
     };
 }]);
 
+// --- MAIN CONTROLLER ---
 app.controller('MainController', function($scope, $http, $timeout) {
     
+    // CONNECTS TO RENDER
     const API_URL = "/api";
     
     $scope.currentUser = null;
@@ -31,9 +34,11 @@ app.controller('MainController', function($scope, $http, $timeout) {
     $scope.editClassData = { subjects: [] }; 
     $scope.db = { classes: [], users: [], assignments: [], attendance: [], notes: [], exams: [] };
     
+    // --- MODAL CONTROLS ---
     $scope.openModal = function(id) { document.getElementById(id).style.display = 'block'; };
     $scope.closeModal = function(id) { document.getElementById(id).style.display = 'none'; };
 
+    // --- AUTHENTICATION ---
     $scope.setLoginRole = function(role) { $scope.loginData.role = role; };
     $scope.login = function() {
         $http.post(API_URL + '/login', $scope.loginData).then(function(res) {
@@ -42,7 +47,6 @@ app.controller('MainController', function($scope, $http, $timeout) {
             $scope.syncData();
         }, function(err) { alert('Invalid Credentials'); });
     };
-    
     $scope.registerAdmin = function() {
         var payload = angular.copy($scope.regData);
         payload.role = 'admin';
@@ -55,16 +59,15 @@ app.controller('MainController', function($scope, $http, $timeout) {
             alert('Registration Failed: ' + (err.data && err.data.error ? err.data.error : 'Network Error'));
         });
     };
-    
     $scope.logout = function() { window.location.reload(); };
 
+    // --- DATA SYNC & HELPERS ---
     $scope.syncData = function() {
         $http.get(API_URL + '/sync-data').then(function(res) {
             $scope.db = res.data;
             $scope.updateStudentDashboard();
         });
     };
-    
     $scope.getClassDetails = function(id) { return $scope.db.classes.find(c => c.id == id) || {name: 'Unknown'}; };
     $scope.getUserName = function(id) { var u = $scope.db.users.find(u => u.id == id); return u ? u.name : 'Unknown'; };
     $scope.isEmpty = function(obj) { return !obj || Object.keys(obj).length === 0; };
@@ -74,12 +77,10 @@ app.controller('MainController', function($scope, $http, $timeout) {
         var payload = { id: Date.now(), name: $scope.newClass.name, section: $scope.newClass.section, subjects: [] };
         $http.post(API_URL + '/classes', payload).then(function() { $scope.syncData(); $scope.newClass = {}; alert('Class Created'); });
     };
-    
     $scope.addSubject = function() {
         $http.post(API_URL + '/subjects', { classId: $scope.newSubject.classId, subject: $scope.newSubject.name }).then(function() { $scope.syncData(); $scope.newSubject={}; alert('Subject Added'); });
     };
 
-    // The safe Edit Modal Opener
     $scope.openEditClassModal = function(cls) {
         $scope.editClassData = angular.copy(cls);
         if (!$scope.editClassData.subjects) {
@@ -125,41 +126,34 @@ app.controller('MainController', function($scope, $http, $timeout) {
         var payload = { id: Date.now(), name: userData.name, email: userData.email, password: userData.password, role: role, classIds: classIds };
         $http.post(API_URL + '/users', payload).then(function() { $scope.syncData(); alert(role + ' Created'); $scope.newUser = { teacher: {}, student: { selectedClasses: {} } }; });
     };
-    
     $scope.openManageStudentModal = function() { $scope.manageStudentId = ""; $scope.editStudentClasses = {}; $scope.openModal('manageStudentModal'); };
-    
     $scope.loadStudentForEdit = function() {
         var s = $scope.db.users.find(u => u.id == $scope.manageStudentId);
         $scope.editStudentClasses = {};
         if(s && s.classIds) s.classIds.forEach(cid => $scope.editStudentClasses[cid] = true);
     };
-    
     $scope.saveStudentClasses = function() {
         var classIds = [];
         for(var cid in $scope.editStudentClasses) { if($scope.editStudentClasses[cid]) classIds.push(parseInt(cid)); }
         $http.post(API_URL + '/update-user-classes', {userId: $scope.manageStudentId, classIds: classIds}).then(function() { $scope.syncData(); alert('Classes Updated'); });
     };
-    
     $scope.deleteStudent = function() {
         if(!confirm("Are you sure?")) return;
         $http.post(API_URL + '/delete-user', {userId: $scope.manageStudentId}).then(function() { $scope.syncData(); $scope.closeModal('manageStudentModal'); alert('User Deleted'); });
     };
-    
     $scope.deleteClass = function(classId, className) {
         if(!confirm("⚠️ Are you sure you want to completely delete '" + className + "'? This will also un-enroll all students from it. This cannot be undone.")) return;
         $http.post(API_URL + '/delete-class', {classId: classId}).then(function() { $scope.syncData(); alert('Class Deleted Successfully'); });
     };
-    
     $scope.resetDatabase = function() { alert("Factory Reset requires backend API configuration."); };
 
-    // --- TEACHER ACTIONS ---
+    // --- TEACHER: ATTENDANCE ---
     $scope.attData = { students: [] };
     $scope.loadSubjectsForAttendance = function() {
         var cls = $scope.db.classes.find(c => c.id == $scope.attData.classId);
         $scope.attData.availableSubjects = cls ? cls.subjects : [];
         $scope.attData.students = $scope.db.users.filter(u => u.role === 'student' && u.classIds.includes(parseInt($scope.attData.classId))).map(s => ({id: s.id, name: s.name, status: 'Present'}));
     };
-    
     $scope.submitAttendance = function() {
         var records = {};
         $scope.attData.students.forEach(s => records[s.id] = s.status);
@@ -167,30 +161,32 @@ app.controller('MainController', function($scope, $http, $timeout) {
         $http.post(API_URL + '/attendance', payload).then(function() { $scope.syncData(); $scope.closeModal('attendanceModal'); alert('Attendance Saved'); });
     };
     
+    // --- TEACHER: ASSIGNMENTS & GRADING ---
     $scope.assignData = {};
     $scope.loadSubjectsForAssign = function() {
         var cls = $scope.db.classes.find(c => c.id == $scope.assignData.classId);
         $scope.assignData.availableSubjects = cls ? cls.subjects : [];
     };
-    
     $scope.postAssignment = function() {
         var payload = angular.copy($scope.assignData);
         payload.id = Date.now();
         payload.submissions = {};
         $http.post(API_URL + '/assignments', payload).then(function() { $scope.syncData(); $scope.closeModal('assignmentModal'); alert('Posted'); });
     };
-    
     $scope.saveGrade = function(assignId, studentId, grade) {
         if (!grade) return alert("Please enter a grade before saving.");
-        $http.post(API_URL + '/grade-assignment', {assignId: assignId, studentId: studentId, grade: grade}).then(function() { alert('Grade Saved Successfully!'); $scope.syncData(); });
+        $http.post(API_URL + '/grade-assignment', {assignId: assignId, studentId: studentId, grade: grade}).then(function() { 
+            alert('Grade Saved Successfully!'); 
+            $scope.syncData(); 
+        });
     };
 
+    // --- TEACHER: MATERIALS / NOTES ---
     $scope.noteData = {};
     $scope.loadSubjectsForNote = function() {
         var cls = $scope.db.classes.find(c => c.id == $scope.noteData.classId);
         $scope.noteData.availableSubjects = cls ? cls.subjects : [];
     };
-    
     $scope.postNote = function() {
         var payload = angular.copy($scope.noteData);
         payload.id = Date.now();
@@ -199,14 +195,13 @@ app.controller('MainController', function($scope, $http, $timeout) {
         $http.post(API_URL + '/notes', payload).then(function() { $scope.syncData(); $scope.closeModal('notesModal'); alert('Material Uploaded!'); });
     };
 
+    // --- TEACHER: EXAMS ---
     $scope.examData = { questions: [] };
     $scope.loadSubjectsForExam = function() {
         var cls = $scope.db.classes.find(c => c.id == $scope.examData.classId);
         $scope.examData.availableSubjects = cls ? cls.subjects : [];
     };
-    
     $scope.addExamQuestion = function() { $scope.examData.questions.push({text: '', options: ['','','',''], correct: 1}); };
-    
     $scope.publishExam = function() {
         var payload = angular.copy($scope.examData);
         payload.id = Date.now();
@@ -214,10 +209,11 @@ app.controller('MainController', function($scope, $http, $timeout) {
         $http.post(API_URL + '/exams', payload).then(function() { $scope.syncData(); $scope.closeModal('createExamModal'); alert('Exam Published'); });
     };
 
-    // --- AI REPORTING ---
+    // --- TEACHER: AI & LINEAR REGRESSION ---
     $scope.generateAIReport = function() {
         var classId = $scope.aiSelectedClass;
         if(!classId) return alert('Select a class to generate the report.');
+
         var students = $scope.db.users.filter(u => u.role === 'student' && u.classIds.includes(parseInt(classId)));
         var points = [];
         $scope.aiData.studentReports = []; 
@@ -228,6 +224,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
             var myAtt = $scope.db.attendance.filter(a => a.classId == classId && a.records && a.records[s.id]);
             var presentCount = myAtt.filter(a => a.records[s.id] === 'Present').length;
             var x = myAtt.length > 0 ? (presentCount / myAtt.length) * 100 : 0;
+
             var myExams = $scope.db.exams.filter(e => e.classId == classId && e.results && e.results[s.id]);
             var scoreSum = 0;
             myExams.forEach(e => { scoreSum += (e.results[s.id].score / e.results[s.id].total) * 100; });
@@ -240,8 +237,13 @@ app.controller('MainController', function($scope, $http, $timeout) {
             else if (x < 70) { status = "At Risk"; color = "gray"; weak = "Poor attendance is affecting potential."; }
 
             $scope.aiData.studentReports.push({
-                name: s.name, attendance: Math.round(x), actual: Math.round(y),
-                predicted: Math.round((x * 0.8) + 10), status: status, color: color, weakAreas: weak
+                name: s.name,
+                attendance: Math.round(x),
+                actual: Math.round(y),
+                predicted: Math.round((x * 0.8) + 10),
+                status: status,
+                color: color,
+                weakAreas: weak
             });
         });
 
@@ -252,6 +254,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
         var sumY = points.reduce((a, b) => a + b.y, 0);
         var sumXY = points.reduce((a, b) => a + (b.x * b.y), 0);
         var sumXX = points.reduce((a, b) => a + (b.x * b.x), 0);
+
         var slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
         var intercept = (sumY - slope * sumX) / n;
 
@@ -260,6 +263,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
             if(!canvas) return;
             var ctx = canvas.getContext('2d');
             if(window.myAiChart) window.myAiChart.destroy();
+
             var scatterData = points.map(p => ({ x: p.x, y: p.y }));
             var lineData = [{ x: 0, y: intercept }, { x: 100, y: (slope * 100) + intercept }];
 
@@ -276,7 +280,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
         }, 200);
     };
 
-    // --- CSV EXPORTS ---
+    // --- TEACHER: CSV EXPORTS (FULLY FIXED & DYNAMIC) ---
     $scope.exportConfig = {};
     $scope.updateExportSubjects = function() {
         var cls = $scope.db.classes.find(c => c.id == $scope.exportConfig.classId);
@@ -295,53 +299,88 @@ app.controller('MainController', function($scope, $http, $timeout) {
         document.body.removeChild(link);
     };
 
+    function formatToDateString(dateObj) {
+        if (!dateObj) return "";
+        if (typeof dateObj === 'string') return dateObj;
+        let d = new Date(dateObj);
+        return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0') + "-" + String(d.getDate()).padStart(2, '0');
+    }
+
+    function formatToMonthString(dateObj) {
+        if (!dateObj) return "";
+        if (typeof dateObj === 'string') return dateObj.substring(0, 7);
+        let d = new Date(dateObj);
+        return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0');
+    }
+
     $scope.exportDailyAttendance = function(subwise) {
-        if (!$scope.exportConfig.classId || !$scope.exportConfig.date) return alert("Select a class and date!");
-        var csv = "Student Name,Subject,Date,Status\n";
-        var records = $scope.db.attendance.filter(a => a.classId == $scope.exportConfig.classId && a.date === $scope.exportConfig.date);
-        if (subwise && $scope.exportConfig.subject) records = records.filter(a => a.subject === $scope.exportConfig.subject);
+        if (!$scope.exportConfig.classId) return alert("Select a class!");
+        if (!$scope.exportConfig.date) return alert("Select a date!");
+        if (subwise && !$scope.exportConfig.subject) return alert("Select a subject for the sub-wise report!");
+
+        let targetDate = formatToDateString($scope.exportConfig.date);
+        let csv = "Student ID,Student Name,Subject,Date,Status\n";
+
+        let records = $scope.db.attendance.filter(a => a.classId == $scope.exportConfig.classId && a.date === targetDate);
+        if (subwise) records = records.filter(a => a.subject === $scope.exportConfig.subject);
+
+        if (records.length === 0) return alert("No attendance records found for " + targetDate + "!");
+
+        let students = $scope.db.users.filter(u => u.role === 'student' && u.classIds.includes(parseInt($scope.exportConfig.classId)));
         
-        var students = $scope.db.users.filter(u => u.role === 'student' && u.classIds.includes(parseInt($scope.exportConfig.classId)));
-        
-        records.forEach(r => {
-            students.forEach(s => {
-                var status = r.records[s.id] || "No Data";
-                csv += `"${s.name}","${r.subject}","${r.date}","${status}"\n`;
+        students.forEach(s => {
+            records.forEach(r => {
+                let status = (r.records && r.records[s.id]) ? r.records[s.id] : "Not Marked";
+                csv += `"${s.id}","${s.name}","${r.subject}","${r.date}","${status}"\n`;
             });
         });
-        $scope.downloadCSV("Daily_Attendance.csv", csv);
+        $scope.downloadCSV("Daily_Attendance_" + targetDate + ".csv", csv);
     };
 
     $scope.exportMonthlyAttendance = function(subwise) {
-        if (!$scope.exportConfig.classId || !$scope.exportConfig.month) return alert("Select a class and month!");
-        var csv = "Student Name,Subject,Month,Total Present,Total Absent\n";
-        var records = $scope.db.attendance.filter(a => a.classId == $scope.exportConfig.classId && a.date && a.date.startsWith($scope.exportConfig.month));
-        if (subwise && $scope.exportConfig.subjectMonth) records = records.filter(a => a.subject === $scope.exportConfig.subjectMonth);
+        if (!$scope.exportConfig.classId) return alert("Select a class!");
+        if (!$scope.exportConfig.month) return alert("Select a month!");
+        if (subwise && !$scope.exportConfig.subjectMonth) return alert("Select a subject for the sub-wise report!");
+
+        let targetMonth = formatToMonthString($scope.exportConfig.month);
+        let csv = "Student ID,Student Name,Subject Filter,Month,Days Present,Days Absent,Attendance %\n";
         
-        var students = $scope.db.users.filter(u => u.role === 'student' && u.classIds.includes(parseInt($scope.exportConfig.classId)));
-        
+        let records = $scope.db.attendance.filter(a => a.classId == $scope.exportConfig.classId && a.date && a.date.startsWith(targetMonth));
+        if (subwise) records = records.filter(a => a.subject === $scope.exportConfig.subjectMonth);
+
+        if (records.length === 0) return alert("No attendance records found for " + targetMonth + "!");
+
+        let students = $scope.db.users.filter(u => u.role === 'student' && u.classIds.includes(parseInt($scope.exportConfig.classId)));
+        let subjectLabel = subwise ? $scope.exportConfig.subjectMonth : "All Subjects";
+
         students.forEach(s => {
-            var present = 0, absent = 0;
+            let present = 0, absent = 0;
             records.forEach(r => {
-                if(r.records[s.id] === 'Present') present++;
-                else if(r.records[s.id] === 'Absent') absent++;
+                if (r.records && r.records[s.id] === 'Present') present++;
+                else if (r.records && r.records[s.id] === 'Absent') absent++;
             });
-            csv += `"${s.name}","Mixed","${$scope.exportConfig.month}","${present}","${absent}"\n`;
+            let total = present + absent;
+            let pct = total > 0 ? ((present / total) * 100).toFixed(1) + "%" : "N/A";
+
+            csv += `"${s.id}","${s.name}","${subjectLabel}","${targetMonth}","${present}","${absent}","${pct}"\n`;
         });
-        $scope.downloadCSV("Monthly_Attendance.csv", csv);
+        $scope.downloadCSV("Monthly_Attendance_" + targetMonth + ".csv", csv);
     };
 
     $scope.exportAssignmentReport = function() {
         if (!$scope.exportConfig.classId) return alert("Select a class!");
-        var csv = "Student Name,Assignment Title,Subject,Grade Status\n";
-        var assignments = $scope.db.assignments.filter(a => a.classId == $scope.exportConfig.classId);
-        var students = $scope.db.users.filter(u => u.role === 'student' && u.classIds.includes(parseInt($scope.exportConfig.classId)));
+        let csv = "Student ID,Student Name,Assignment Title,Subject,Due Date,Grade Status\n";
         
+        let assignments = $scope.db.assignments.filter(a => a.classId == $scope.exportConfig.classId);
+        let students = $scope.db.users.filter(u => u.role === 'student' && u.classIds.includes(parseInt($scope.exportConfig.classId)));
+        
+        if (assignments.length === 0) return alert("No assignments found in this class!");
+
         students.forEach(s => {
             assignments.forEach(a => {
-                var sub = a.submissions && a.submissions[s.id];
-                var grade = sub && sub.grade ? sub.grade : (sub ? "Ungraded" : "Missing");
-                csv += `"${s.name}","${a.title}","${a.subject}","${grade}"\n`;
+                let sub = a.submissions && a.submissions[s.id];
+                let grade = (sub && sub.grade) ? sub.grade : (sub ? "Submitted (Ungraded)" : "Missing");
+                csv += `"${s.id}","${s.name}","${a.title}","${a.subject}","${a.due}","${grade}"\n`;
             });
         });
         $scope.downloadCSV("Assignments_Report.csv", csv);
@@ -349,16 +388,20 @@ app.controller('MainController', function($scope, $http, $timeout) {
 
     $scope.exportExamReport = function() {
         if (!$scope.exportConfig.classId) return alert("Select a class!");
-        var csv = "Student Name,Exam Title,Subject,Score,Total\n";
-        var exams = $scope.db.exams.filter(e => e.classId == $scope.exportConfig.classId);
-        var students = $scope.db.users.filter(u => u.role === 'student' && u.classIds.includes(parseInt($scope.exportConfig.classId)));
+        let csv = "Student ID,Student Name,Exam Title,Subject,Score,Total,Percentage\n";
         
+        let exams = $scope.db.exams.filter(e => e.classId == $scope.exportConfig.classId);
+        let students = $scope.db.users.filter(u => u.role === 'student' && u.classIds.includes(parseInt($scope.exportConfig.classId)));
+        
+        if (exams.length === 0) return alert("No exams found in this class!");
+
         students.forEach(s => {
             exams.forEach(e => {
-                var res = e.results && e.results[s.id];
-                var score = res ? res.score : "Did not take";
-                var total = res ? res.total : "-";
-                csv += `"${s.name}","${e.title}","${e.subject}","${score}","${total}"\n`;
+                let res = e.results && e.results[s.id];
+                let score = res ? res.score : "Not Taken";
+                let total = res ? res.total : e.questions.length;
+                let pct = res ? ((res.score / res.total) * 100).toFixed(1) + "%" : "N/A";
+                csv += `"${s.id}","${s.name}","${e.title}","${e.subject}","${score}","${total}","${pct}"\n`;
             });
         });
         $scope.downloadCSV("Exams_Report.csv", csv);
@@ -366,12 +409,46 @@ app.controller('MainController', function($scope, $http, $timeout) {
 
     $scope.exportMasterReport = function() {
         if (!$scope.exportConfig.classId) return alert("Select a class!");
-        var csv = "System ID,Student Name,Email\n";
-        var students = $scope.db.users.filter(u => u.role === 'student' && u.classIds.includes(parseInt($scope.exportConfig.classId)));
+        let csv = "Student ID,Student Name,Email,Overall Attendance %,Avg Assignment Grade,Avg Exam %\n";
+        
+        let students = $scope.db.users.filter(u => u.role === 'student' && u.classIds.includes(parseInt($scope.exportConfig.classId)));
+        if (students.length === 0) return alert("No students enrolled in this class!");
+
         students.forEach(s => {
-            csv += `"${s.id}","${s.name}","${s.email}"\n`;
+            // 1. Calculate Attendance
+            let allAtt = $scope.db.attendance.filter(a => a.classId == $scope.exportConfig.classId && a.records && a.records[s.id]);
+            let attPct = "N/A";
+            if (allAtt.length > 0) {
+                let present = allAtt.filter(a => a.records[s.id] === 'Present').length;
+                attPct = ((present / allAtt.length) * 100).toFixed(1) + "%";
+            }
+
+            // 2. Calculate Assignment Avg
+            let allAssign = $scope.db.assignments.filter(a => a.classId == $scope.exportConfig.classId && a.submissions && a.submissions[s.id]);
+            let assignAvg = "N/A";
+            if (allAssign.length > 0) {
+                let sum = 0, count = 0;
+                allAssign.forEach(a => {
+                    let g = parseFloat(a.submissions[s.id].grade);
+                    if (!isNaN(g)) { sum += g; count++; }
+                });
+                if (count > 0) assignAvg = (sum / count).toFixed(1);
+            }
+
+            // 3. Calculate Exam Avg
+            let allExams = $scope.db.exams.filter(e => e.classId == $scope.exportConfig.classId && e.results && e.results[s.id]);
+            let examAvg = "N/A";
+            if (allExams.length > 0) {
+                let sum = 0;
+                allExams.forEach(e => {
+                    sum += (e.results[s.id].score / e.results[s.id].total) * 100;
+                });
+                examAvg = (sum / allExams.length).toFixed(1) + "%";
+            }
+
+            csv += `"${s.id}","${s.name}","${s.email}","${attPct}","${assignAvg}","${examAvg}"\n`;
         });
-        $scope.downloadCSV("Master_Directory.csv", csv);
+        $scope.downloadCSV("Master_Class_Directory.csv", csv);
     };
 
     // --- STUDENT DASHBOARD ---
