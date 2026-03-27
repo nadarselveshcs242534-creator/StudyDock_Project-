@@ -1,6 +1,5 @@
 var app = angular.module('studyDockApp', []);
 
-// --- DIRECTIVE FOR FILE UPLOAD ---
 app.directive('fileModel', ['$parse', function ($parse) {
     return {
         restrict: 'A',
@@ -18,7 +17,6 @@ app.directive('fileModel', ['$parse', function ($parse) {
     };
 }]);
 
-// --- MAIN CONTROLLER ---
 app.controller('MainController', function($scope, $http, $timeout) {
     
     // CONNECTS TO RENDER
@@ -34,12 +32,11 @@ app.controller('MainController', function($scope, $http, $timeout) {
     $scope.editClassData = { subjects: [] }; 
     $scope.db = { classes: [], users: [], assignments: [], attendance: [], notes: [], exams: [] };
     
-    // --- MODAL CONTROLS ---
     $scope.openModal = function(id) { document.getElementById(id).style.display = 'block'; };
     $scope.closeModal = function(id) { document.getElementById(id).style.display = 'none'; };
 
-    // --- AUTHENTICATION ---
     $scope.setLoginRole = function(role) { $scope.loginData.role = role; };
+    
     $scope.login = function() {
         $http.post(API_URL + '/login', $scope.loginData).then(function(res) {
             $scope.currentUser = res.data;
@@ -47,6 +44,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
             $scope.syncData();
         }, function(err) { alert('Invalid Credentials'); });
     };
+    
     $scope.registerAdmin = function() {
         var payload = angular.copy($scope.regData);
         payload.role = 'admin';
@@ -59,15 +57,16 @@ app.controller('MainController', function($scope, $http, $timeout) {
             alert('Registration Failed: ' + (err.data && err.data.error ? err.data.error : 'Network Error'));
         });
     };
+    
     $scope.logout = function() { window.location.reload(); };
 
-    // --- DATA SYNC & HELPERS ---
     $scope.syncData = function() {
         $http.get(API_URL + '/sync-data').then(function(res) {
             $scope.db = res.data;
             $scope.updateStudentDashboard();
         });
     };
+    
     $scope.getClassDetails = function(id) { return $scope.db.classes.find(c => c.id == id) || {name: 'Unknown'}; };
     $scope.getUserName = function(id) { var u = $scope.db.users.find(u => u.id == id); return u ? u.name : 'Unknown'; };
     $scope.isEmpty = function(obj) { return !obj || Object.keys(obj).length === 0; };
@@ -77,6 +76,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
         var payload = { id: Date.now(), name: $scope.newClass.name, section: $scope.newClass.section, subjects: [] };
         $http.post(API_URL + '/classes', payload).then(function() { $scope.syncData(); $scope.newClass = {}; alert('Class Created'); });
     };
+    
     $scope.addSubject = function() {
         $http.post(API_URL + '/subjects', { classId: $scope.newSubject.classId, subject: $scope.newSubject.name }).then(function() { $scope.syncData(); $scope.newSubject={}; alert('Subject Added'); });
     };
@@ -126,25 +126,31 @@ app.controller('MainController', function($scope, $http, $timeout) {
         var payload = { id: Date.now(), name: userData.name, email: userData.email, password: userData.password, role: role, classIds: classIds };
         $http.post(API_URL + '/users', payload).then(function() { $scope.syncData(); alert(role + ' Created'); $scope.newUser = { teacher: {}, student: { selectedClasses: {} } }; });
     };
+    
     $scope.openManageStudentModal = function() { $scope.manageStudentId = ""; $scope.editStudentClasses = {}; $scope.openModal('manageStudentModal'); };
+    
     $scope.loadStudentForEdit = function() {
         var s = $scope.db.users.find(u => u.id == $scope.manageStudentId);
         $scope.editStudentClasses = {};
         if(s && s.classIds) s.classIds.forEach(cid => $scope.editStudentClasses[cid] = true);
     };
+    
     $scope.saveStudentClasses = function() {
         var classIds = [];
         for(var cid in $scope.editStudentClasses) { if($scope.editStudentClasses[cid]) classIds.push(parseInt(cid)); }
         $http.post(API_URL + '/update-user-classes', {userId: $scope.manageStudentId, classIds: classIds}).then(function() { $scope.syncData(); alert('Classes Updated'); });
     };
+    
     $scope.deleteStudent = function() {
         if(!confirm("Are you sure?")) return;
         $http.post(API_URL + '/delete-user', {userId: $scope.manageStudentId}).then(function() { $scope.syncData(); $scope.closeModal('manageStudentModal'); alert('User Deleted'); });
     };
+    
     $scope.deleteClass = function(classId, className) {
         if(!confirm("⚠️ Are you sure you want to completely delete '" + className + "'? This will also un-enroll all students from it. This cannot be undone.")) return;
         $http.post(API_URL + '/delete-class', {classId: classId}).then(function() { $scope.syncData(); alert('Class Deleted Successfully'); });
     };
+    
     $scope.resetDatabase = function() { alert("Factory Reset requires backend API configuration."); };
 
     // --- TEACHER: ATTENDANCE ---
@@ -198,6 +204,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
         var cls = $scope.db.classes.find(c => c.id == $scope.noteData.classId);
         $scope.noteData.availableSubjects = cls ? cls.subjects : [];
     };
+    
     $scope.postNote = function() {
         var payload = angular.copy($scope.noteData);
         payload.id = Date.now();
@@ -212,7 +219,9 @@ app.controller('MainController', function($scope, $http, $timeout) {
         var cls = $scope.db.classes.find(c => c.id == $scope.examData.classId);
         $scope.examData.availableSubjects = cls ? cls.subjects : [];
     };
+    
     $scope.addExamQuestion = function() { $scope.examData.questions.push({text: '', options: ['','','',''], correct: 1}); };
+    
     $scope.publishExam = function() {
         var payload = angular.copy($scope.examData);
         payload.id = Date.now();
@@ -220,25 +229,27 @@ app.controller('MainController', function($scope, $http, $timeout) {
         $http.post(API_URL + '/exams', payload).then(function() { $scope.syncData(); $scope.closeModal('createExamModal'); alert('Exam Published'); });
     };
 
-    // --- TEACHER: AI & LINEAR REGRESSION (100% FIXED) ---
+    // --- TEACHER: AI & LINEAR REGRESSION ---
     $scope.generateAIReport = function() {
         var classId = $scope.aiSelectedClass;
         if(!classId) return alert('Select a class to generate the report.');
 
         var students = $scope.db.users.filter(u => u.role === 'student' && u.classIds.includes(parseInt(classId)));
         var points = [];
+        
+        // Ensure aiData object exists to prevent crashes
+        if (!$scope.aiData) {
+            $scope.aiData = {};
+        }
         $scope.aiData.studentReports = []; 
 
-        // Failsafe 1: Don't panic if the class is totally empty
         if(students.length === 0) return alert("No students found in this class yet.");
 
         students.forEach(s => {
-            // Calculate real attendance (or default to 0%)
             var myAtt = $scope.db.attendance.filter(a => a.classId == classId && a.records && a.records[s.id]);
             var presentCount = myAtt.filter(a => a.records[s.id] === 'Present').length;
             var x = myAtt.length > 0 ? (presentCount / myAtt.length) * 100 : 0;
 
-            // Calculate real exam scores (or default to 0%)
             var myExams = $scope.db.exams.filter(e => e.classId == classId && e.results && e.results[s.id]);
             var scoreSum = 0;
             myExams.forEach(e => { 
@@ -246,7 +257,6 @@ app.controller('MainController', function($scope, $http, $timeout) {
             });
             var y = myExams.length > 0 ? (scoreSum / myExams.length) : 0;
 
-            // ALWAYS push the student to the graph, even if they have 0 data
             points.push({x: x, y: y, name: s.name});
 
             var status = "Stable", color = "green", weak = "None";
@@ -264,9 +274,8 @@ app.controller('MainController', function($scope, $http, $timeout) {
             });
         });
 
-        // Failsafe 2: Safe Math Regression
         var slope = 0;
-        var intercept = 50; // Default flat line if there isn't enough data yet
+        var intercept = 50; 
         
         if (points.length >= 2) {
             var n = points.length;
@@ -282,7 +291,6 @@ app.controller('MainController', function($scope, $http, $timeout) {
             }
         }
 
-        // Draw the Chart
         $timeout(function() {
             var canvas = document.getElementById('aiChart');
             if(!canvas) return;
@@ -301,7 +309,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
                     ]
                 },
                 options: { 
-                    maintainAspectRatio: false, // REQUIRED for Tailwind fixed heights!
+                    maintainAspectRatio: false, 
                     scales: { 
                         x: { type: 'linear', position: 'bottom', min: 0, max: 100, title: {display: true, text: 'Attendance %'} }, 
                         y: { min: 0, max: 100, title: {display: true, text: 'Exam Score %'} } 
@@ -311,7 +319,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
         }, 200);
     };
 
-    // --- TEACHER: CSV EXPORTS ---
+    // --- CSV EXPORTS ---
     $scope.exportConfig = {};
     $scope.updateExportSubjects = function() {
         var cls = $scope.db.classes.find(c => c.id == $scope.exportConfig.classId);
@@ -512,6 +520,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
             }
         });
     };
+    
     $scope.updateStudentView = function() { $scope.updateStudentDashboard(); };
 
     $scope.openSubmitAssignmentModal = function(a) {
