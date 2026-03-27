@@ -28,7 +28,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
     $scope.newUser = { teacher: {}, student: { selectedClasses: {} } };
     $scope.newClass = {};
     $scope.newSubject = {};
-    $scope.editClassData = { subjects: [] }; // NEW: Holds data for the Edit Class Modal
+    $scope.editClassData = { subjects: [] }; 
     $scope.db = { classes: [], users: [], assignments: [], attendance: [], notes: [], exams: [] };
     
     $scope.openModal = function(id) { document.getElementById(id).style.display = 'block'; };
@@ -42,6 +42,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
             $scope.syncData();
         }, function(err) { alert('Invalid Credentials'); });
     };
+    
     $scope.registerAdmin = function() {
         var payload = angular.copy($scope.regData);
         payload.role = 'admin';
@@ -54,6 +55,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
             alert('Registration Failed: ' + (err.data && err.data.error ? err.data.error : 'Network Error'));
         });
     };
+    
     $scope.logout = function() { window.location.reload(); };
 
     $scope.syncData = function() {
@@ -62,6 +64,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
             $scope.updateStudentDashboard();
         });
     };
+    
     $scope.getClassDetails = function(id) { return $scope.db.classes.find(c => c.id == id) || {name: 'Unknown'}; };
     $scope.getUserName = function(id) { var u = $scope.db.users.find(u => u.id == id); return u ? u.name : 'Unknown'; };
     $scope.isEmpty = function(obj) { return !obj || Object.keys(obj).length === 0; };
@@ -76,14 +79,16 @@ app.controller('MainController', function($scope, $http, $timeout) {
         $http.post(API_URL + '/subjects', { classId: $scope.newSubject.classId, subject: $scope.newSubject.name }).then(function() { $scope.syncData(); $scope.newSubject={}; alert('Subject Added'); });
     };
 
-    // NEW: Open Edit Modal
+    // The safe Edit Modal Opener
     $scope.openEditClassModal = function(cls) {
         $scope.editClassData = angular.copy(cls);
+        if (!$scope.editClassData.subjects) {
+            $scope.editClassData.subjects = [];
+        }
         $scope.editClassData.newSubject = '';
         $scope.openModal('editClassModal');
     };
 
-    // NEW: Save Class Update
     $scope.saveClassUpdate = function() {
         var payload = { classId: $scope.editClassData.id, name: $scope.editClassData.name, section: $scope.editClassData.section };
         $http.post(API_URL + '/update-class', payload).then(function() {
@@ -93,7 +98,6 @@ app.controller('MainController', function($scope, $http, $timeout) {
         });
     };
 
-    // NEW: Remove Subject
     $scope.removeSubject = function(subjectName) {
         if(!confirm("Remove subject '" + subjectName + "'?")) return;
         $http.post(API_URL + '/remove-subject', { classId: $scope.editClassData.id, subject: subjectName }).then(function() {
@@ -102,7 +106,6 @@ app.controller('MainController', function($scope, $http, $timeout) {
         });
     };
 
-    // NEW: Add Subject directly from Edit Modal
     $scope.addNewSubjectFromEdit = function() {
         if(!$scope.editClassData.newSubject) return;
         $http.post(API_URL + '/subjects', { classId: $scope.editClassData.id, subject: $scope.editClassData.newSubject })
@@ -124,16 +127,19 @@ app.controller('MainController', function($scope, $http, $timeout) {
     };
     
     $scope.openManageStudentModal = function() { $scope.manageStudentId = ""; $scope.editStudentClasses = {}; $scope.openModal('manageStudentModal'); };
+    
     $scope.loadStudentForEdit = function() {
         var s = $scope.db.users.find(u => u.id == $scope.manageStudentId);
         $scope.editStudentClasses = {};
         if(s && s.classIds) s.classIds.forEach(cid => $scope.editStudentClasses[cid] = true);
     };
+    
     $scope.saveStudentClasses = function() {
         var classIds = [];
         for(var cid in $scope.editStudentClasses) { if($scope.editStudentClasses[cid]) classIds.push(parseInt(cid)); }
         $http.post(API_URL + '/update-user-classes', {userId: $scope.manageStudentId, classIds: classIds}).then(function() { $scope.syncData(); alert('Classes Updated'); });
     };
+    
     $scope.deleteStudent = function() {
         if(!confirm("Are you sure?")) return;
         $http.post(API_URL + '/delete-user', {userId: $scope.manageStudentId}).then(function() { $scope.syncData(); $scope.closeModal('manageStudentModal'); alert('User Deleted'); });
@@ -153,6 +159,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
         $scope.attData.availableSubjects = cls ? cls.subjects : [];
         $scope.attData.students = $scope.db.users.filter(u => u.role === 'student' && u.classIds.includes(parseInt($scope.attData.classId))).map(s => ({id: s.id, name: s.name, status: 'Present'}));
     };
+    
     $scope.submitAttendance = function() {
         var records = {};
         $scope.attData.students.forEach(s => records[s.id] = s.status);
@@ -165,12 +172,14 @@ app.controller('MainController', function($scope, $http, $timeout) {
         var cls = $scope.db.classes.find(c => c.id == $scope.assignData.classId);
         $scope.assignData.availableSubjects = cls ? cls.subjects : [];
     };
+    
     $scope.postAssignment = function() {
         var payload = angular.copy($scope.assignData);
         payload.id = Date.now();
         payload.submissions = {};
         $http.post(API_URL + '/assignments', payload).then(function() { $scope.syncData(); $scope.closeModal('assignmentModal'); alert('Posted'); });
     };
+    
     $scope.saveGrade = function(assignId, studentId, grade) {
         if (!grade) return alert("Please enter a grade before saving.");
         $http.post(API_URL + '/grade-assignment', {assignId: assignId, studentId: studentId, grade: grade}).then(function() { alert('Grade Saved Successfully!'); $scope.syncData(); });
@@ -181,6 +190,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
         var cls = $scope.db.classes.find(c => c.id == $scope.noteData.classId);
         $scope.noteData.availableSubjects = cls ? cls.subjects : [];
     };
+    
     $scope.postNote = function() {
         var payload = angular.copy($scope.noteData);
         payload.id = Date.now();
@@ -194,7 +204,9 @@ app.controller('MainController', function($scope, $http, $timeout) {
         var cls = $scope.db.classes.find(c => c.id == $scope.examData.classId);
         $scope.examData.availableSubjects = cls ? cls.subjects : [];
     };
+    
     $scope.addExamQuestion = function() { $scope.examData.questions.push({text: '', options: ['','','',''], correct: 1}); };
+    
     $scope.publishExam = function() {
         var payload = angular.copy($scope.examData);
         payload.id = Date.now();
@@ -396,6 +408,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
         $scope.submissionData = {};
         $scope.openModal('submitAssignmentModal');
     };
+    
     $scope.submitAssignment = function() {
         var payload = {
             assignId: $scope.activeAssignment.id,
@@ -406,12 +419,14 @@ app.controller('MainController', function($scope, $http, $timeout) {
     };
     
     $scope.openStudentExamModal = function() { $scope.openModal('studentExamListModal'); };
+    
     $scope.startExam = function(e) {
         $scope.activeExam = e;
         $scope.examAnswers = {}; 
         $scope.openModal('takeExamModal');
         $scope.closeModal('studentExamListModal');
     };
+    
     $scope.submitExam = function() {
         if (Object.keys($scope.examAnswers).length !== $scope.activeExam.questions.length) {
             return alert("You must answer all questions before submitting!");

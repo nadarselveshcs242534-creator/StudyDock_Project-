@@ -435,11 +435,14 @@
                     <div class="mt-4">
                         <label class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Manage Subjects</label>
                         <div class="bg-slate-50 border border-slate-200 rounded-lg p-2 max-h-40 overflow-y-auto custom-scrollbar">
-                            <div ng-if="editClassData.subjects.length === 0" class="text-xs text-slate-400 italic p-2 text-center">No subjects added yet.</div>
-                            <div ng-repeat="sub in editClassData.subjects" class="flex justify-between items-center bg-white border border-slate-100 p-2 rounded mb-1 shadow-sm transition-all hover:border-red-200">
+                            
+                            <div ng-if="!editClassData.subjects || editClassData.subjects.length === 0" class="text-xs text-slate-400 italic p-2 text-center">No subjects added yet.</div>
+                            
+                            <div ng-repeat="sub in editClassData.subjects track by $index" class="flex justify-between items-center bg-white border border-slate-100 p-2 rounded mb-1 shadow-sm transition-all hover:border-red-200">
                                 <span class="text-sm font-medium text-slate-700">{{sub}}</span>
                                 <button type="button" ng-click="removeSubject(sub)" class="text-slate-300 hover:text-red-500 transition-colors px-2"><i class="fas fa-times"></i></button>
                             </div>
+
                         </div>
                         
                         <div class="flex gap-2 mt-3 items-center">
