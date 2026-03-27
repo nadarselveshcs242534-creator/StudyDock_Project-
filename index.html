@@ -34,9 +34,9 @@
 
                     <div class="mb-8 flex justify-center" ng-show="authMode === 'login'">
                         <div class="bg-gray-100 p-1.5 rounded-xl flex shadow-inner w-full">
-                            <button ng-click="setRole('admin')" ng-class="{'bg-white text-green-700 shadow-sm': loginRole === 'admin', 'text-gray-500 hover:text-gray-700': loginRole !== 'admin'}" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200">Admin</button>
-                            <button ng-click="setRole('teacher')" ng-class="{'bg-white text-green-700 shadow-sm': loginRole === 'teacher', 'text-gray-500 hover:text-gray-700': loginRole !== 'teacher'}" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200">Teacher</button>
-                            <button ng-click="setRole('student')" ng-class="{'bg-white text-green-700 shadow-sm': loginRole === 'student', 'text-gray-500 hover:text-gray-700': loginRole !== 'student'}" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200">Student</button>
+                            <button ng-click="setLoginRole('admin')" ng-class="{'bg-white text-green-700 shadow-sm': loginData.role === 'admin', 'text-gray-500 hover:text-gray-700': loginData.role !== 'admin'}" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200">Admin</button>
+                            <button ng-click="setLoginRole('teacher')" ng-class="{'bg-white text-green-700 shadow-sm': loginData.role === 'teacher', 'text-gray-500 hover:text-gray-700': loginData.role !== 'teacher'}" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200">Teacher</button>
+                            <button ng-click="setLoginRole('student')" ng-class="{'bg-white text-green-700 shadow-sm': loginData.role === 'student', 'text-gray-500 hover:text-gray-700': loginData.role !== 'student'}" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200">Student</button>
                         </div>
                     </div>
 
@@ -75,11 +75,11 @@
                     </form>
 
                     <div class="mt-8 text-center">
-                         <p class="text-sm text-gray-500" ng-show="authMode === 'login' && loginRole === 'admin'">
-                            New Admin? <a href="#" ng-click="authMode = 'register'" class="text-green-600 font-bold hover:underline">Create Account</a>
+                         <p class="text-sm text-gray-500" ng-show="authMode === 'login'">
+                            New Admin? <a href="#" ng-click="authMode = 'register'" class="text-green-600 font-bold hover:underline cursor-pointer">Create Account</a>
                         </p>
                         <p class="text-sm text-gray-500" ng-show="authMode === 'register'">
-                            Already have an account? <a href="#" ng-click="authMode = 'login'" class="text-green-600 font-bold hover:underline">Login</a>
+                            Already have an account? <a href="#" ng-click="authMode = 'login'" class="text-green-600 font-bold hover:underline cursor-pointer">Login</a>
                         </p>
                     </div>
                 </div>
@@ -190,10 +190,13 @@
                                 <div>
                                     <h3 class="text-sm font-bold text-slate-700 mb-3">Active Classes</h3>
                                     <div class="flex flex-wrap gap-3">
-                                        <div ng-repeat="c in db.classes" class="bg-white border border-slate-200 rounded-lg p-3 shadow-sm min-w-[140px]">
+                                        <div ng-repeat="c in db.classes" class="bg-white border border-slate-200 rounded-lg p-3 shadow-sm min-w-[140px] relative group transition-all hover:border-red-200">
+                                            <button ng-click="deleteClass(c.id, c.name)" class="absolute top-2 right-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete Class">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
                                             <div class="font-bold text-slate-800">{{c.name}}</div>
                                             <div class="text-xs text-green-600 font-semibold mb-1">{{c.section}}</div>
-                                            <div class="text-[10px] text-slate-400 leading-tight">
+                                            <div class="text-[10px] text-slate-400 leading-tight pr-4">
                                                 {{ c.subjects.length > 0 ? c.subjects.join(', ') : 'No subjects' }}
                                             </div>
                                         </div>
@@ -800,8 +803,6 @@
 
     </div>
 
-    <script src="script.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
-
-//code changed,register as Admin 
