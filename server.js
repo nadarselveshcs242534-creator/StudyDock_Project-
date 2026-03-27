@@ -9,6 +9,7 @@ const bodyParser = require('body-parser');
 const path = require('path');
 
 const app = express();
+// Bumped limit to 50mb for mobile phone pictures
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(cors());
 
@@ -22,7 +23,7 @@ mongoose.connect(mongoURI)
     .then(() => console.log("✅ MongoDB Connected"))
     .catch(err => console.log("❌ DB Error:", err));
 
-// --- 3. SCHEMAS ---
+// --- 3. SCHEMAS (Database Structure) ---
 const ClassSchema = new mongoose.Schema({
     id: Number, 
     name: String,
@@ -168,7 +169,6 @@ app.post('/api/delete-class', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// NEW: Update Class Name/Section
 app.post('/api/update-class', async (req, res) => {
     const { classId, name, section } = req.body;
     try {
@@ -177,7 +177,6 @@ app.post('/api/update-class', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// NEW: Remove a specific subject from a class
 app.post('/api/remove-subject', async (req, res) => {
     const { classId, subject } = req.body;
     try {
@@ -273,6 +272,7 @@ app.post('/api/toggle-exam-results', async (req, res) => {
     res.json({ success: true });
 });
 
+// --- 5. CATCH-ALL ROUTE ---
 app.use((req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
