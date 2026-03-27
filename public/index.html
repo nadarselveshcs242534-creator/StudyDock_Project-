@@ -190,13 +190,18 @@
                                 <div>
                                     <h3 class="text-sm font-bold text-slate-700 mb-3">Active Classes</h3>
                                     <div class="flex flex-wrap gap-3">
-                                        <div ng-repeat="c in db.classes" class="bg-white border border-slate-200 rounded-lg p-3 shadow-sm min-w-[140px] relative group transition-all hover:border-red-200">
-                                            <button ng-click="deleteClass(c.id, c.name)" class="absolute top-2 right-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete Class">
-                                                <i class="fas fa-trash-alt"></i>
-                                            </button>
+                                        <div ng-repeat="c in db.classes" class="bg-white border border-slate-200 rounded-lg p-3 shadow-sm min-w-[140px] relative group transition-all hover:border-blue-200">
+                                            <div class="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button ng-click="openEditClassModal(c)" class="text-slate-300 hover:text-blue-500" title="Edit Class">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button ng-click="deleteClass(c.id, c.name)" class="text-slate-300 hover:text-red-500" title="Delete Class">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
+                                            </div>
                                             <div class="font-bold text-slate-800">{{c.name}}</div>
                                             <div class="text-xs text-green-600 font-semibold mb-1">{{c.section}}</div>
-                                            <div class="text-[10px] text-slate-400 leading-tight pr-4">
+                                            <div class="text-[10px] text-slate-400 leading-tight pr-10">
                                                 {{ c.subjects.length > 0 ? c.subjects.join(', ') : 'No subjects' }}
                                             </div>
                                         </div>
@@ -407,6 +412,45 @@
 
                 </div>
             </main>
+        </div>
+
+        <div id="editClassModal" class="modal-backdrop">
+            <div class="modal-panel">
+                <div class="flex justify-between items-center mb-4 border-b pb-2">
+                    <h2 class="text-xl font-bold text-slate-800">Edit Class</h2>
+                    <span ng-click="closeModal('editClassModal')" class="cursor-pointer text-slate-400 hover:text-slate-600"><i class="fas fa-times text-xl"></i></span>
+                </div>
+                <form ng-submit="saveClassUpdate()" class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Class Name</label>
+                            <input type="text" ng-model="editClassData.name" class="input-modern" required>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Section</label>
+                            <input type="text" ng-model="editClassData.section" class="input-modern">
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <label class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Manage Subjects</label>
+                        <div class="bg-slate-50 border border-slate-200 rounded-lg p-2 max-h-40 overflow-y-auto custom-scrollbar">
+                            <div ng-if="editClassData.subjects.length === 0" class="text-xs text-slate-400 italic p-2 text-center">No subjects added yet.</div>
+                            <div ng-repeat="sub in editClassData.subjects" class="flex justify-between items-center bg-white border border-slate-100 p-2 rounded mb-1 shadow-sm transition-all hover:border-red-200">
+                                <span class="text-sm font-medium text-slate-700">{{sub}}</span>
+                                <button type="button" ng-click="removeSubject(sub)" class="text-slate-300 hover:text-red-500 transition-colors px-2"><i class="fas fa-times"></i></button>
+                            </div>
+                        </div>
+                        
+                        <div class="flex gap-2 mt-3 items-center">
+                            <input type="text" ng-model="editClassData.newSubject" placeholder="Type new subject..." class="input-sm flex-1 border-slate-300">
+                            <button type="button" ng-click="addNewSubjectFromEdit()" class="btn-sm bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 px-4">Add</button>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-primary w-full mt-6">Save Class Changes</button>
+                </form>
+            </div>
         </div>
 
         <div id="updateProfileModal" class="modal-backdrop">
